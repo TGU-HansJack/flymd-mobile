@@ -4,10 +4,13 @@ export type SafDocument = { uri: string; name?: string }
 
 export interface SafPlugin {
   pickDocument(): Promise<SafDocument>
+  pickDirectory(): Promise<SafDocument>
   createDocument(options: { filename: string; mimeType?: string }): Promise<SafDocument>
   readUri(options: { uri: string }): Promise<{ content: string }>
   writeUri(options: { uri: string; content: string }): Promise<void>
   persistPermission(options: { uri: string }): Promise<void>
+  listDir(options: { uri: string }): Promise<{ entries: Array<{ uri: string; name: string; isDir: boolean }> }>
+  stat(options: { uri: string }): Promise<{ isDir: boolean; size: number; mtime: number }>
 }
 
 // Web fallback: throw explicit error to keep failures obvious during development
@@ -17,6 +20,9 @@ const Saf = registerPlugin<SafPlugin>('Saf', {
       pickDocument: async () => {
         throw new Error('SAF is only available on native Android runtime')
       },
+      pickDirectory: async () => {
+        throw new Error('SAF is only available on native Android runtime')
+      },
       createDocument: async () => {
         throw new Error('SAF is only available on native Android runtime')
       },
@@ -24,6 +30,12 @@ const Saf = registerPlugin<SafPlugin>('Saf', {
         throw new Error('SAF is only available on native Android runtime')
       },
       writeUri: async () => {
+        throw new Error('SAF is only available on native Android runtime')
+      },
+      listDir: async () => {
+        throw new Error('SAF is only available on native Android runtime')
+      },
+      stat: async () => {
         throw new Error('SAF is only available on native Android runtime')
       },
       persistPermission: async () => {}

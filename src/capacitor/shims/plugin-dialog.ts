@@ -3,14 +3,19 @@ import { Dialog } from '@capacitor/dialog'
 
 type OpenDialogFilter = { name?: string; extensions?: string[] }
 
-export async function open(_options?: {
+export async function open(options?: {
   multiple?: boolean
   directory?: boolean
   filters?: OpenDialogFilter[]
 }): Promise<string | null> {
   try {
-    const { uri } = await Saf.pickDocument()
-    return uri
+    if (options?.directory) {
+      const { uri } = await Saf.pickDirectory()
+      return uri
+    } else {
+      const { uri } = await Saf.pickDocument()
+      return uri
+    }
   } catch {
     return null
   }

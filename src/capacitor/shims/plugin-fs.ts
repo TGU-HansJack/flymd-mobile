@@ -97,6 +97,10 @@ export async function writeFile(path: string, data: Uint8Array | number[], optio
 }
 
 export async function readDir(path: string, options?: DirOption): Promise<Array<{ name: string; path: string }>> {
+  if (path.startsWith('content://')) {
+    const { entries } = await Saf.listDir({ uri: path })
+    return entries.map((e) => ({ name: e.name, path: e.uri }))
+  }
   const res = await Filesystem.readdir({
     path: normalizePath(path),
     directory: resolveDirectory(options?.dir)
@@ -154,6 +158,10 @@ export async function stat(path: string, options?: DirOption): Promise<{
   isDir: boolean
   isFile: boolean
 }> {
+  if (path.startsWith('content://')) {
+    const res = await Saf.stat({ uri: path })
+    return { size: res.size, mtime: res.mtime, ctime: null, isDir: res.isDir, isFile: !res.isDir }
+  }
   const res = await Filesystem.stat({
     path: normalizePath(path),
     directory: resolveDirectory(options?.dir)

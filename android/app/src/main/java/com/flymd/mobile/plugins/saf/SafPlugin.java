@@ -8,7 +8,9 @@ import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 
 import androidx.activity.result.ActivityResult;
+import androidx.documentfile.provider.DocumentFile;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -32,6 +34,13 @@ public class SafPlugin extends Plugin {
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false);
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         startActivityForResult(call, intent, "handlePickResult");
+    }
+
+    @PluginMethod
+    public void pickDirectory(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        startActivityForResult(call, intent, "handlePickDirResult");
     }
 
     @PluginMethod
@@ -98,6 +107,61 @@ public class SafPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void listDir(PluginCall call) {
+        String uriStr = call.getString("uri");
+        if (uriStr == null || uriStr.isEmpty()) {
+            call.reject("uri is required");
+            return;
+        }
+        try {
+            DocumentFile dir = DocumentFile.fromTreeUri(getContext(), Uri.parse(uriStr));
+            if (dir == null || !dir.isDirectory()) {
+                call.reject("not a directory");
+                return;
+            }
+            JSArray arr = new JSArray();
+            for (DocumentFile child : dir.listFiles()) {
+                JSObject obj = new JSObject();
+                obj.put("uri", child.getUri().toString());
+                obj.put("name", child.getName());
+                obj.put("isDir", child.isDirectory());
+                arr.put(obj);
+            }
+            JSObject result = new JSObject();
+            result.put("entries", arr);
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("listDir failed: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void stat(PluginCall call) {
+        String uriStr = call.getString("uri");
+        if (uriStr == null || uriStr.isEmpty()) {
+            call.reject("uri is required");
+            return;
+        }
+        try {
+            DocumentFile f = DocumentFile.fromSingleUri(getContext(), Uri.parse(uriStr));
+            if (f == null) {
+                f = DocumentFile.fromTreeUri(getContext(), Uri.parse(uriStr));
+            }
+            if (f == null) {
+                call.reject("stat failed: null document");
+                return;
+            }
+            JSObject result = new JSObject();
+            result.put("isDir", f.isDirectory());
+            result.put("size", f.length());
+            result.put("mtime", f.lastModified());
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("stat failed: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
     public void persistPermission(PluginCall call) {
         String uriStr = call.getString("uri");
         if (uriStr == null || uriStr.isEmpty()) {
@@ -115,6 +179,24 @@ public class SafPlugin extends Plugin {
 
     @ActivityCallback
     private void handlePickResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != getActivity().RESULT_OK || result.getData() == null) {
+            call.reject("USER_CANCELED");
+            return;
+        }
+
+        Uri uri = result.getData().getData();
+        if (uri == null) {
+            call.reject("No URI returned");
+            return;
+        }
+
+        persistIfPossible(uri, result.getData());
+        resolveUri(call, uri);
+    }
+
+    @ActivityCallback
+    private void handlePickDirResult(PluginCall call, ActivityResult result) {
         if (call == null) return;
         if (result.getResultCode() != getActivity().RESULT_OK || result.getData() == null) {
             call.reject("USER_CANCELED");

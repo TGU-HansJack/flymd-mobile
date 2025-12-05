@@ -6,6 +6,10 @@ export class Store {
     this.name = name || 'default'
   }
 
+  static async load(name: string): Promise<Store> {
+    return new Store(name)
+  }
+
   private key(): string {
     return `${prefix}${this.name}`
   }
