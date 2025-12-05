@@ -1,38 +1,61 @@
 /*
   平台检测与适配层
-  - 桌面端：使用 Tauri 文件系统插件（路径模式）
-  - Android：使用 SAF（URI 模式）
+  - 桌面：使用 Tauri 文件系统/对话框插件（路径模式）
+  - Android（Capacitor）：使用 SAF 插件（URI 模式）
 */
 
-import { invoke } from '@tauri-apps/api/core'
-import { open, save } from '@tauri-apps/plugin-dialog'
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { Capacitor } from '@capacitor/core'
+import Saf from './capacitor/saf'
 
-// 平台类型
 export type Platform = 'windows' | 'linux' | 'macos' | 'android' | 'unknown'
 
-// 文件引用（桌面用路径，Android 用 URI）
+// 文件引用：桌面使用路径，Android 使用 content:// URI
 export type FileRef = {
-  path: string  // 桌面：文件路径，Android：content:// URI
-  name: string  // 文件名
+  path: string
+  name: string
   platform: Platform
 }
 
 let cachedPlatform: Platform | null = null
 
+function hasTauriRuntime(): boolean {
+  return typeof (window as any).__TAURI__ !== 'undefined'
+}
+
+function extractNameFromUri(uri: string, fallback: string): string {
+  const fromSlash = uri.split(/[/\\]/).pop()
+  if (fromSlash && fromSlash.length > 0) return fromSlash
+  const fromQuery = uri.split('?')[0]?.split(/[/\\]/).pop()
+  return fromQuery || fallback
+}
+
 // 获取当前平台
 export async function getPlatform(): Promise<Platform> {
   if (cachedPlatform) return cachedPlatform
-  try {
-    cachedPlatform = await invoke<Platform>('get_platform')
-  } catch {
-    cachedPlatform = 'unknown'
+
+  if (Capacitor.isNativePlatform()) {
+    const capPlatform = Capacitor.getPlatform()
+    cachedPlatform = capPlatform === 'android' ? 'android' : 'unknown'
+    return cachedPlatform
   }
+
+  if (hasTauriRuntime()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      cachedPlatform = await invoke<Platform>('get_platform')
+      return cachedPlatform
+    } catch (err) {
+      console.warn('[Platform] fallback to unknown platform:', err)
+    }
+  }
+
+  cachedPlatform = 'unknown'
   return cachedPlatform
 }
 
-// 同步检测是否为移动端（基于 User-Agent）
+// 同步检查是否为移动端（包含 Capacitor 原生）
 export function isMobile(): boolean {
+  if (Capacitor.isNativePlatform()) return true
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 }
 
@@ -42,16 +65,16 @@ export async function openFileDialog(): Promise<FileRef | null> {
 
   if (platform === 'android') {
     try {
-      const uri = await invoke<string>('android_pick_document')
-      // 从 URI 提取文件名（简化处理）
-      const name = uri.split('/').pop() || 'document.md'
-      return { path: uri, name, platform }
+      const { uri, name } = await Saf.pickDocument()
+      return { path: uri, name: name || extractNameFromUri(uri, 'document.md'), platform }
     } catch (e) {
-      console.error('Android pick document failed:', e)
+      console.error('Android SAF pick document failed:', e)
       return null
     }
-  } else {
-    // 桌面端
+  }
+
+  if (hasTauriRuntime()) {
+    const { open } = await import('@tauri-apps/plugin-dialog')
     const path = await open({
       multiple: false,
       filters: [
@@ -60,9 +83,22 @@ export async function openFileDialog(): Promise<FileRef | null> {
       ]
     })
     if (!path) return null
-    const name = path.split(/[/\\]/).pop() || 'document.md'
+    const name = extractNameFromUri(path, 'document.md')
     return { path, name, platform }
   }
+
+  // 浏览器兜底：使用 input[type=file]
+  return new Promise(resolve => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.md,.markdown,.txt,text/markdown,text/plain'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (!file) return resolve(null)
+      resolve({ path: file.name, name: file.name, platform: 'unknown' })
+    }
+    input.click()
+  })
 }
 
 // 保存文件对话框（跨平台）
@@ -71,45 +107,61 @@ export async function saveFileDialog(defaultName: string = 'untitled.md'): Promi
 
   if (platform === 'android') {
     try {
-      const uri = await invoke<string>('android_create_document', {
+      const { uri } = await Saf.createDocument({
         filename: defaultName,
         mimeType: 'text/markdown'
       })
       return { path: uri, name: defaultName, platform }
     } catch (e) {
-      console.error('Android create document failed:', e)
+      console.error('Android SAF create document failed:', e)
       return null
     }
-  } else {
-    // 桌面端
+  }
+
+  if (hasTauriRuntime()) {
+    const { save } = await import('@tauri-apps/plugin-dialog')
     const path = await save({
       defaultPath: defaultName,
-      filters: [
-        { name: 'Markdown', extensions: ['md'] }
-      ]
+      filters: [{ name: 'Markdown', extensions: ['md'] }]
     })
     if (!path) return null
-    const name = path.split(/[/\\]/).pop() || defaultName
+    const name = extractNameFromUri(path, defaultName)
     return { path, name, platform }
   }
+
+  // 浏览器兜底：不支持本地保存路径，直接返回临时引用
+  return { path: defaultName, name: defaultName, platform: 'unknown' }
 }
 
 // 读取文件（跨平台）
 export async function readFile(ref: FileRef): Promise<string> {
   if (ref.platform === 'android') {
-    return await invoke<string>('android_read_uri', { uri: ref.path })
-  } else {
+    const { content } = await Saf.readUri({ uri: ref.path })
+    return content
+  }
+
+  if (hasTauriRuntime()) {
+    const { readTextFile } = await import('@tauri-apps/plugin-fs')
     return await readTextFile(ref.path)
   }
+
+  throw new Error('File read is not supported on this platform')
 }
 
 // 写入文件（跨平台）
 export async function writeFile(ref: FileRef, content: string): Promise<void> {
   if (ref.platform === 'android') {
-    await invoke('android_write_uri', { uri: ref.path, content })
-  } else {
-    await writeTextFile(ref.path, content)
+    await Saf.writeUri({ uri: ref.path, content })
+    return
   }
+
+  if (hasTauriRuntime()) {
+    const { writeTextFile } = await import('@tauri-apps/plugin-fs')
+    await writeTextFile(ref.path, content)
+    return
+  }
+
+  throw new Error('File write is not supported on this platform')
 }
 
 // 持久化 URI 权限（Android 专用）
@@ -117,14 +169,14 @@ export async function persistUriPermission(uri: string): Promise<void> {
   const platform = await getPlatform()
   if (platform === 'android') {
     try {
-      await invoke('android_persist_uri_permission', { uri })
+      await Saf.persistPermission({ uri })
     } catch (e) {
       console.warn('Failed to persist URI permission:', e)
     }
   }
 }
 
-// 从 localStorage 存储/读取最近文件（Android 用 URI）
+// 最近文件列表存储（Android 用 URI）
 const RECENT_FILES_KEY = 'flymd_recent_files'
 
 export function getRecentFiles(): FileRef[] {
@@ -139,11 +191,8 @@ export function getRecentFiles(): FileRef[] {
 
 export function addRecentFile(ref: FileRef): void {
   const recent = getRecentFiles()
-  // 去重
   const filtered = recent.filter(f => f.path !== ref.path)
-  // 添加到最前
   filtered.unshift(ref)
-  // 限制 20 条
   if (filtered.length > 20) filtered.length = 20
   localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(filtered))
 }

@@ -1,0 +1,7 @@
+{
+  "name": "flymd",
+  "type": "vite",
+  "integrations": {
+    "capacitor": {}
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">flymd</string>
+    <string name="title_activity_main">flymd</string>
+    <string name="package_name">com.flymd.mobile</string>
+    <string name="custom_url_scheme">com.flymd.mobile</string>
+</resources>

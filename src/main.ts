@@ -18,6 +18,8 @@ const _startTime = performance.now()
 
 import './style.css'
 import './mobile.css'  // 移动端样式
+import '@ionic/core/css/ionic.bundle.css'
+import { defineCustomElements } from '@ionic/pwa-elements/loader'
 import { initThemeUI, applySavedTheme, updateChromeColorsForMode } from './theme'
 import { t, fmtStatus, getLocalePref, setLocalePref, getLocale } from './i18n'
 // KaTeX 样式改为按需动态加载（首次检测到公式时再加载）
@@ -49,6 +51,7 @@ import appIconUrl from '../Flymdnew.png?url'
 import goodImgUrl from '../good.png?url'
 import { decorateCodeBlocks } from './decorate'
 import pkg from '../package.json'
+defineCustomElements(window)
 // htmlToMarkdown 改为按需动态导入（仅在粘贴 HTML 时使用）
 import { initWebdavSync, openWebdavSyncDialog, getWebdavSyncConfig, isWebdavConfiguredForActiveLibrary, syncNow as webdavSyncNow, setOnSyncComplete, openSyncLog as webdavOpenSyncLog } from './extensions/webdavSync'
 // 平台适配层（Android 支持）
