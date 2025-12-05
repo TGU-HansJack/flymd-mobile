@@ -1,0 +1,44 @@
+[package]
+name = "flymd"
+version = "0.6.2"
+description = "飞速 Markdown 编辑器"
+authors = ["flymd"]
+edition = "2021"
+rust-version = "1.70"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-store = "2"
+tauri-plugin-window-state = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+percent-encoding = "2"
+url = "2"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+aws-config = { version = "1", features = ["rt-tokio", "behavior-version-latest"] }
+aws-sdk-s3 = { version = "1", features = ["rt-tokio"] }
+trash = "3"
+futures-util = "0.3"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+[profile.release]
+# 说明：release 配置优先减小体积和启动时间，后续不要随意改动以免引入性能回退
+panic = "abort"
+codegen-units = 1
+opt-level = "z"
+lto = true
+strip = true

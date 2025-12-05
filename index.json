@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "updatedAt": "2025-12-05T18:00:00Z",
+  "ttlSeconds": 3600,
+  "items": [
+    {
+      "homepage": "https://github.com/TGU-HansJack/typecho-publisher-flymd",
+      "name": "Typecho Publisher",
+      "description": "发布到 Typecho",
+      "author": "HansJack",
+      "id": "typecho-publisher-flymd",
+      "install": {
+        "ref": "TGU-HansJack/typecho-publisher-flymd@http",
+        "type": "github"
+      }
+    },
+    {
+      "homepage": "https://github.com/TGU-HansJack/flymd-halo",
+      "name": "Halo Publisher",
+      "description": "发布到 Halo",
+      "author": "HansJack",
+      "id": "flymd-halo",
+      "install": {
+        "ref": "TGU-HansJack/flymd-halo@main",
+        "type": "github"
+      }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "AI 助手",
+      "description": "AI 助手",
+      "author": "飞速MarkDown",
+      "id": "ai-assistant",
+      "featured": true,
+      "rank": 1,
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/ai-assistant/manifest.json",
+        "type": "manifest"
+      }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "批量导出 PDF",
+      "description": "一次选择多个文档并批量导出为 PDF",
+      "author": "飞速MarkDown",
+      "id": "batch-pdf",
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/batch-pdf/manifest.json",
+        "type": "manifest"
+      }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "PDF 高精度解析",
+      "description": "使用大模型高精度识别解析 PDF 为 Markdown 或 docx，支持手写、布局、公式和表格识别。",
+      "author": "flyMD",
+      "id": "pdf2doc",
+      "featured": true,
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/pdf2doc/manifest.json",
+        "type": "manifest"
+      }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "发送到 Blinko",
+      "description": "右键菜单一键将当前内容发送到 Blinko",
+      "author": "flyMD",
+      "id": "blinko-snap",
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/blinko-snap/manifest.json",
+        "type": "manifest"
+      }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "Markdown 表格助手",
+      "description": "在光标处快速插入 Markdown 表格",
+      "author": "flyMD",
+      "id": "markdown-table",
+      "featured": true,
+      "rank": 3,
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/markdown-table/manifest.json",
+        "type": "manifest"
+      }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "协同编辑",
+      "description": "连接协同服务器的简单多人协同插件",
+      "author": "flyMD",
+      "id": "local-collab-os",
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/local-collab-os/manifest.json",
+        "type": "manifest"
+      }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "xxtui 待办推送",
+      "description": "扫描当前文档中的未完成待办并推送到 xxtui",
+      "author": "飞速MarkDown & XXTUI",
+      "id": "xxtui-todo-push",
+      "featured": true,
+      "rank": 2,
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/xxtui-todo-push/manifest.json",
+        "type": "manifest"
+      }
+    },
+    {
+      "homepage": "https://github.com/xf959211192/telegraph-image-flymd",
+      "name": "Telegraph 图床上传",
+      "description": "粘贴/拖拽图片自动上传 Telegraph-Image 并插入 Markdown 外链",
+      "author": "",
+      "id": "telegraph-image-flymd",
+      "install": {
+        "ref": "xf959211192/telegraph-image-flymd@main",
+        "type": "github"
+      }
+    },
+    {
+      "homepage": "https://github.com/flyhunterl/flymd",
+      "name": "Typecho 博文管理",
+      "description": "从 Typecho 拉取博文列表并下载为本地 Markdown，支持按时间 / 分类筛选，同时支持从当前文档覆盖远端文章。",
+      "author": "flyMD",
+      "id": "typecho-manager",
+      "featured": true,
+      "install": {
+        "ref": "https://raw.githubusercontent.com/flyhunterl/flymd/main/public/plugins/typecho-manager/manifest.json",
+        "type": "manifest"
+      }
+    },
+    {
+      "homepage": "https://github.com/Vita0519/AI-Copywriting-All-Rounder",
+      "name": "小红书文案生成",
+      "description": "接入 AI，内置小红书爆款风格，支持一键润色、扩写与自定义提示词模板。",
+      "author": "Vita0519",
+      "id": "xhs-copywriter",
+      "install": {
+        "ref": "Vita0519/AI-Copywriting-All-Rounder@main",
+        "type": "github"
+      }
+    }
+  ]
+}

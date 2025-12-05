@@ -1,0 +1,490 @@
+// 代码块语法高亮 NodeView：使用 highlight.js 为非 mermaid 代码块添加高亮
+// 采用 overlay 方式：contentDOM 保持纯文本可编辑，下方叠加高亮显示层
+import type { Node } from '@milkdown/prose/model'
+import type { EditorView, NodeView } from '@milkdown/prose/view'
+
+// 常用语言列表（带图标）
+const POPULAR_LANGUAGES = [
+  { id: 'javascript', name: 'JavaScript', icon: '🟨' },
+  { id: 'typescript', name: 'TypeScript', icon: '🔷' },
+  { id: 'python', name: 'Python', icon: '🐍' },
+  { id: 'java', name: 'Java', icon: '☕' },
+  { id: 'cpp', name: 'C++', icon: '⚙️' },
+  { id: 'c', name: 'C', icon: '🔧' },
+  { id: 'csharp', name: 'C#', icon: '🎯' },
+  { id: 'go', name: 'Go', icon: '🐹' },
+  { id: 'rust', name: 'Rust', icon: '🦀' },
+  { id: 'ruby', name: 'Ruby', icon: '💎' },
+  { id: 'php', name: 'PHP', icon: '🐘' },
+  { id: 'swift', name: 'Swift', icon: '🕊️' },
+  { id: 'kotlin', name: 'Kotlin', icon: '🎨' },
+  { id: 'html', name: 'HTML', icon: '🌐' },
+  { id: 'css', name: 'CSS', icon: '🎨' },
+  { id: 'scss', name: 'SCSS', icon: '🎀' },
+  { id: 'sql', name: 'SQL', icon: '🗃️' },
+  { id: 'bash', name: 'Bash', icon: '💻' },
+  { id: 'shell', name: 'Shell', icon: '🐚' },
+  { id: 'powershell', name: 'PowerShell', icon: '🔵' },
+  { id: 'json', name: 'JSON', icon: '📋' },
+  { id: 'yaml', name: 'YAML', icon: '📄' },
+  { id: 'xml', name: 'XML', icon: '📰' },
+  { id: 'markdown', name: 'Markdown', icon: '📝' },
+  { id: 'dockerfile', name: 'Dockerfile', icon: '🐳' },
+  { id: 'lua', name: 'Lua', icon: '🌙' },
+  { id: 'r', name: 'R', icon: '📊' },
+  { id: 'scala', name: 'Scala', icon: '🔴' },
+  { id: 'perl', name: 'Perl', icon: '🐪' },
+  { id: 'haskell', name: 'Haskell', icon: '🟣' },
+  { id: 'elixir', name: 'Elixir', icon: '💧' },
+  { id: 'clojure', name: 'Clojure', icon: '🟢' },
+  { id: 'dart', name: 'Dart', icon: '🎯' },
+  { id: 'vue', name: 'Vue', icon: '💚' },
+  { id: 'graphql', name: 'GraphQL', icon: '🔺' },
+  { id: 'nginx', name: 'Nginx', icon: '🌿' },
+  { id: 'plaintext', name: 'Plain Text', icon: '📃' },
+]
+
+// 高亮代码块 NodeView
+export class HighlightCodeBlockNodeView implements NodeView {
+  dom: HTMLElement
+  contentDOM: HTMLElement
+  private highlightLayer: HTMLElement
+  private codeWrapper: HTMLElement
+  private langSelector: HTMLElement
+  private langInput: HTMLInputElement
+  private langDropdown: HTMLElement
+  private node: Node
+  private view: EditorView
+  private getPos: () => number | undefined
+  private lastCode: string = ''
+  private highlightTimer: number | null = null
+  // 监听 selectionchange，用于控制语言选择器显隐
+  private selectionListener: ((event: Event) => void) | null = null
+
+  constructor(node: Node, view: EditorView, getPos: () => number | undefined) {
+    this.node = node
+    this.view = view
+    this.getPos = getPos
+    const lang = node.attrs.language || ''
+
+    // 创建 <pre> 容器
+    this.dom = document.createElement('pre')
+    this.dom.classList.add('code-block-wrapper')
+    if (lang) {
+      this.dom.setAttribute('data-language', lang)
+    }
+
+    // 创建一个内部包装器，用于精确对齐两个层
+    this.codeWrapper = document.createElement('div')
+    this.codeWrapper.classList.add('code-layers')
+    this.codeWrapper.style.position = 'relative'
+    this.dom.appendChild(this.codeWrapper)
+
+    // 创建语言选择器（设置 contentEditable=false 阻止 ProseMirror 处理）
+    this.langSelector = document.createElement('div')
+    this.langSelector.className = 'code-lang-selector'
+    this.langSelector.contentEditable = 'false'
+
+    this.langInput = document.createElement('input')
+    this.langInput.type = 'text'
+    this.langInput.className = 'code-lang-input'
+    this.langInput.placeholder = '选择语言...'
+    this.langInput.value = lang
+    this.langSelector.appendChild(this.langInput)
+
+    this.langDropdown = document.createElement('div')
+    this.langDropdown.className = 'code-lang-dropdown'
+    this.langDropdown.style.pointerEvents = 'auto'
+    this.langSelector.appendChild(this.langDropdown)
+
+    this.dom.appendChild(this.langSelector)
+
+    // 绑定语言选择器事件
+    this.setupLangSelector()
+    // 绑定选区变化事件：光标离开当前代码块时隐藏语言选择器
+    this.setupLangVisibilityWatcher()
+
+    // 创建高亮显示层（只读，显示高亮后的代码）
+    // 放在底层，contentDOM 透明覆盖在上面
+    this.highlightLayer = document.createElement('code')
+    this.highlightLayer.classList.add('highlight-layer')
+    if (lang) {
+      this.highlightLayer.classList.add(`language-${lang}`)
+    }
+    this.highlightLayer.style.display = 'block'
+    this.highlightLayer.style.whiteSpace = 'pre'
+    this.highlightLayer.style.pointerEvents = 'none'
+    this.codeWrapper.appendChild(this.highlightLayer)
+
+    // 创建 <code> 作为 contentDOM（ProseMirror 可编辑区域）
+    // 绝对定位覆盖在 highlightLayer 上方
+    this.contentDOM = document.createElement('code')
+    this.contentDOM.classList.add('editable-layer')
+    if (lang) {
+      this.contentDOM.classList.add(`language-${lang}`)
+    }
+    // 编辑层样式：文字透明，只显示光标，绝对定位完全覆盖高亮层
+    this.contentDOM.style.position = 'absolute'
+    this.contentDOM.style.top = '0'
+    this.contentDOM.style.left = '0'
+    this.contentDOM.style.right = '0'
+    this.contentDOM.style.bottom = '0'
+    this.contentDOM.style.display = 'block'
+    this.contentDOM.style.color = 'transparent'
+    this.contentDOM.style.caretColor = 'var(--fg, #d4d4d4)'
+    this.contentDOM.style.whiteSpace = 'pre'
+    this.contentDOM.style.background = 'transparent'
+    this.contentDOM.style.margin = '0'
+    this.contentDOM.style.padding = '0'
+    this.codeWrapper.appendChild(this.contentDOM)
+
+    // 初始高亮（延迟执行，等待 ProseMirror 填充内容）
+    requestAnimationFrame(() => {
+      this.scheduleHighlight()
+    })
+  }
+
+  // 根据当前选区决定是否显示语言选择器
+  private updateLangSelectorVisibility() {
+    const doc = this.view.dom.ownerDocument
+    const activeEl = doc.activeElement
+
+    // 如果当前焦点在语言选择器内部（输入框或下拉菜单），保持可见
+    if (activeEl && (activeEl === this.langInput || this.langSelector.contains(activeEl))) {
+      this.langSelector.style.visibility = 'visible'
+      return
+    }
+
+    // 编辑器整体失焦且焦点也不在语言选择器内时，直接隐藏
+    if (!this.view.hasFocus()) {
+      this.langSelector.style.visibility = 'hidden'
+      return
+    }
+
+    const pos = this.getPos()
+    if (typeof pos !== 'number') {
+      // 异常情况（装饰节点等），直接隐藏，避免报错
+      this.langSelector.style.visibility = 'hidden'
+      return
+    }
+
+    const { from } = this.view.state.selection
+    const nodeStart = pos
+    const nodeEnd = pos + this.node.nodeSize
+    const inThisNode = from >= nodeStart && from <= nodeEnd
+
+    this.langSelector.style.visibility = inThisNode ? 'visible' : 'hidden'
+  }
+
+  // 注册 selectionchange 监听，在光标离开代码块后隐藏语言选择器
+  private setupLangVisibilityWatcher() {
+    const doc = this.view.dom.ownerDocument
+    const handler = (event: Event) => {
+      // 只要选区变化就重新判断一次所在节点
+      this.updateLangSelectorVisibility()
+    }
+
+    doc.addEventListener('selectionchange', handler)
+    this.selectionListener = handler
+
+    // 初始化一次，保证首次渲染时状态正确
+    this.updateLangSelectorVisibility()
+  }
+
+  private setupLangSelector() {
+    // 渲染下拉列表
+    const renderDropdown = (filter: string = '') => {
+      const lowerFilter = filter.toLowerCase()
+      const filtered = filter
+        ? POPULAR_LANGUAGES.filter(l =>
+            l.id.toLowerCase().includes(lowerFilter) ||
+            l.name.toLowerCase().includes(lowerFilter)
+          )
+        : POPULAR_LANGUAGES
+
+      this.langDropdown.innerHTML = filtered.map(l =>
+        `<div class="code-lang-item" data-lang="${l.id}">
+          <span class="code-lang-icon">${l.icon}</span>
+          <span class="code-lang-name">${l.name}</span>
+        </div>`
+      ).join('')
+
+      // 如果有过滤文本但没有匹配项，显示自定义语言选项
+      if (filter && filtered.length === 0) {
+        this.langDropdown.innerHTML = `
+          <div class="code-lang-item" data-lang="${filter}">
+            <span class="code-lang-icon">📝</span>
+            <span class="code-lang-name">使用 "${filter}"</span>
+          </div>`
+      }
+    }
+
+    // 选择语言
+    const selectLanguage = (langId: string) => {
+      this.langInput.value = langId
+      this.langDropdown.classList.remove('show')
+
+      // 更新 ProseMirror 节点属性
+      const pos = this.getPos()
+      if (pos !== undefined) {
+        const tr = this.view.state.tr.setNodeAttribute(pos, 'language', langId)
+        this.view.dispatch(tr)
+      }
+    }
+
+    // 定位下拉菜单（使用 fixed 定位避免被 overflow 裁剪）
+    const positionDropdown = () => {
+      const rect = this.langInput.getBoundingClientRect()
+      this.langDropdown.style.position = 'fixed'
+      this.langDropdown.style.top = `${rect.bottom + 4}px`
+      this.langDropdown.style.left = `${rect.right - 180}px` // 右对齐，宽度 180px
+    }
+
+    // 输入框聚焦时显示下拉
+    this.langInput.addEventListener('focus', () => {
+      renderDropdown(this.langInput.value)
+      positionDropdown()
+      this.langDropdown.classList.add('show')
+    })
+
+    // 输入时过滤
+    this.langInput.addEventListener('input', () => {
+      renderDropdown(this.langInput.value)
+      positionDropdown()
+      this.langDropdown.classList.add('show')
+    })
+
+    // 当前选中索引（-1 表示无选中）
+    let selectedIndex = -1
+
+    // 更新选中项高亮
+    const updateSelection = () => {
+      const items = this.langDropdown.querySelectorAll('.code-lang-item')
+      items.forEach((item, i) => {
+        if (i === selectedIndex) {
+          item.classList.add('selected')
+          // 滚动到可见区域
+          item.scrollIntoView({ block: 'nearest' })
+        } else {
+          item.classList.remove('selected')
+        }
+      })
+    }
+
+    // 点击下拉项（使用 mousedown 防止 blur 先触发）
+    this.langDropdown.addEventListener('mousedown', (e) => {
+      e.preventDefault() // 阻止 blur 触发
+      const item = (e.target as HTMLElement).closest('.code-lang-item')
+      if (item) {
+        const langId = item.getAttribute('data-lang') || ''
+        selectLanguage(langId)
+      }
+    })
+
+    // 键盘导航
+    this.langInput.addEventListener('keydown', (e) => {
+      const items = this.langDropdown.querySelectorAll('.code-lang-item')
+      const itemCount = items.length
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        if (itemCount > 0) {
+          selectedIndex = (selectedIndex + 1) % itemCount
+          updateSelection()
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (itemCount > 0) {
+          selectedIndex = selectedIndex <= 0 ? itemCount - 1 : selectedIndex - 1
+          updateSelection()
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        const selectedItem = selectedIndex >= 0 ? items[selectedIndex] : items[0]
+        if (selectedItem) {
+          const langId = selectedItem.getAttribute('data-lang') || this.langInput.value
+          selectLanguage(langId)
+        } else {
+          selectLanguage(this.langInput.value)
+        }
+        this.langInput.blur()
+      } else if (e.key === 'Escape') {
+        this.langDropdown.classList.remove('show')
+        this.langInput.blur()
+      }
+    })
+
+    // 输入时重置选中索引
+    this.langInput.addEventListener('input', () => {
+      selectedIndex = -1
+    })
+
+    // 常用别名映射
+    const LANG_ALIASES: Record<string, string> = {
+      'js': 'javascript',
+      'ts': 'typescript',
+      'py': 'python',
+      'rb': 'ruby',
+      'rs': 'rust',
+      'sh': 'bash',
+      'yml': 'yaml',
+      'md': 'markdown',
+      'c++': 'cpp',
+      'c#': 'csharp',
+      'cs': 'csharp',
+      'kt': 'kotlin',
+      'ps': 'powershell',
+      'ps1': 'powershell',
+      'text': 'plaintext',
+      'txt': 'plaintext',
+    }
+
+    // 自动补全：根据输入找到最佳匹配
+    const autoComplete = (input: string): string | null => {
+      if (!input) return null
+      const lower = input.toLowerCase()
+      // 检查别名
+      if (LANG_ALIASES[lower]) return LANG_ALIASES[lower]
+      // 精确匹配 id
+      const exact = POPULAR_LANGUAGES.find(l => l.id === lower)
+      if (exact) return exact.id
+      // 前缀匹配 id（如 pyt -> python）
+      const prefixMatch = POPULAR_LANGUAGES.find(l => l.id.startsWith(lower))
+      if (prefixMatch) return prefixMatch.id
+      // 前缀匹配 name
+      const nameMatch = POPULAR_LANGUAGES.find(l => l.name.toLowerCase().startsWith(lower))
+      if (nameMatch) return nameMatch.id
+      return null
+    }
+
+    // 点击外部关闭并自动补全
+    this.langInput.addEventListener('blur', () => {
+      // 延迟关闭，以便点击下拉项能触发
+      setTimeout(() => {
+        this.langDropdown.classList.remove('show')
+        // 自动补全
+        const input = this.langInput.value.trim()
+        const completed = autoComplete(input)
+        if (completed && completed !== input) {
+          selectLanguage(completed)
+        } else if (input && input !== this.node.attrs.language) {
+          // 输入了新语言但没有匹配，直接使用输入值
+          selectLanguage(input)
+        }
+      }, 150)
+    })
+
+    // 初始渲染
+    renderDropdown()
+  }
+
+  private scheduleHighlight() {
+    // 防抖：100ms 内多次调用只执行一次
+    if (this.highlightTimer !== null) {
+      window.clearTimeout(this.highlightTimer)
+    }
+    this.highlightTimer = window.setTimeout(() => {
+      this.highlightTimer = null
+      this.doHighlight()
+    }, 100)
+  }
+
+  private async doHighlight() {
+    try {
+      const code = this.contentDOM.textContent || ''
+      console.log('[Highlight Plugin] doHighlight 被调用, code length:', code.length)
+
+      // 如果代码没变化，跳过高亮
+      if (code === this.lastCode) {
+        console.log('[Highlight Plugin] 代码未变化，跳过')
+        return
+      }
+      this.lastCode = code
+
+      if (!code.trim()) {
+        this.highlightLayer.innerHTML = ''
+        return
+      }
+
+      const lang = this.node.attrs.language || ''
+      console.log('[Highlight Plugin] 语言:', lang)
+
+      const hljs = await import('highlight.js')
+      console.log('[Highlight Plugin] highlight.js 已加载')
+
+      let result: { value: string }
+      if (lang && hljs.default.getLanguage(lang)) {
+        result = hljs.default.highlight(code, { language: lang, ignoreIllegals: true })
+        console.log('[Highlight Plugin] 使用指定语言高亮')
+      } else {
+        result = hljs.default.highlightAuto(code)
+        console.log('[Highlight Plugin] 使用自动检测高亮')
+      }
+
+      // 将高亮结果应用到显示层（不影响 contentDOM）
+      this.highlightLayer.innerHTML = result.value
+      console.log('[Highlight Plugin] 高亮完成, HTML length:', result.value.length)
+    } catch (e) {
+      // 高亮失败时显示原始代码
+      console.error('[Highlight Plugin] 高亮失败:', e)
+      this.highlightLayer.textContent = this.contentDOM.textContent || ''
+    }
+  }
+
+  update(node: Node) {
+    if (node.type !== this.node.type) return false
+
+    // 更新语言属性
+    const oldLang = this.node.attrs.language || ''
+    const newLang = node.attrs.language || ''
+    if (oldLang !== newLang) {
+      if (newLang) {
+        this.dom.setAttribute('data-language', newLang)
+        this.contentDOM.className = `editable-layer language-${newLang}`
+        this.highlightLayer.className = `highlight-layer language-${newLang}`
+      } else {
+        this.dom.removeAttribute('data-language')
+        this.contentDOM.className = 'editable-layer'
+        this.highlightLayer.className = 'highlight-layer'
+      }
+      // 同步语言输入框
+      this.langInput.value = newLang
+    }
+
+    this.node = node
+
+    // 检查代码是否变化，触发重新高亮
+    const newCode = this.contentDOM.textContent || ''
+    if (newCode !== this.lastCode) {
+      this.scheduleHighlight()
+    }
+
+    return true
+  }
+
+  ignoreMutation(mutation: MutationRecord) {
+    // 忽略高亮层的任何变化
+    if (mutation.target === this.highlightLayer || this.highlightLayer.contains(mutation.target as globalThis.Node)) {
+      return true
+    }
+    // 忽略语言选择器的任何变化
+    if (mutation.target === this.langSelector || this.langSelector.contains(mutation.target as globalThis.Node)) {
+      return true
+    }
+    // contentDOM 的变化需要通知 ProseMirror
+    return false
+  }
+
+  destroy() {
+    if (this.highlightTimer !== null) {
+      window.clearTimeout(this.highlightTimer)
+      this.highlightTimer = null
+    }
+
+    // 移除 selectionchange 监听，避免内存泄露
+    if (this.selectionListener) {
+      this.view.dom.ownerDocument.removeEventListener('selectionchange', this.selectionListener)
+      this.selectionListener = null
+    }
+  }
+}
