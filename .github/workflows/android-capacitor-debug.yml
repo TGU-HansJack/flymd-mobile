@@ -3,8 +3,8 @@ name: Android (Capacitor Debug)
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - '**'
 
 jobs:
   build-android-debug:
