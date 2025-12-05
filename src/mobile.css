@@ -1,248 +1,342 @@
-/* 移动端 UI 适配样式 */
+/* 移动端样式重写：Ionic + Capacitor */
 
-/* ========== 响应式布局 ========== */
-@media (max-width: 768px) {
-  /* 隐藏桌面端文件库侧边栏，改为抽屉式 */
-  #fileTreePanel {
-    position: fixed !important;
-    left: -85vw;
-    top: 0;
-    width: 85vw;
-    height: 100vh;
+:root {
+  --flymd-mobile-bg: #0b1220;
+  --flymd-mobile-surface: rgba(14, 22, 36, 0.92);
+  --flymd-mobile-border: rgba(255, 255, 255, 0.08);
+  --flymd-accent: #34c759;
+  --flymd-text: #e5e7eb;
+  --flymd-muted: #9ca3af;
+}
+
+@media (max-width: 1024px) {
+  body {
+    background: radial-gradient(circle at 20% 20%, rgba(52, 199, 89, 0.12), transparent 35%),
+      radial-gradient(circle at 80% 10%, rgba(94, 234, 212, 0.12), transparent 32%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(5, 10, 20, 0.96) 100%);
+    color: var(--flymd-text);
+  }
+
+  .mobile-app ion-header {
+    background: linear-gradient(135deg, #0f172a 0%, #0b1220 60%, #0c1424 100%);
+    border-bottom: 1px solid var(--flymd-mobile-border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .mobile-titlebar {
+    padding: 4px 8px;
+  }
+
+  .mobile-toolbar {
+    --background: transparent;
+    --min-height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-menubar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .mobile-toolbar .menu-item,
+  .mobile-toolbar-secondary .menu-item {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--flymd-mobile-border);
+    color: var(--flymd-text);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.12s ease;
+    user-select: none;
+  }
+
+  .mobile-toolbar .menu-item:active,
+  .mobile-toolbar-secondary .menu-item:active {
+    transform: translateY(1px);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  ion-title.filename {
+    font-weight: 700;
+    font-size: 16px;
+    text-align: end;
+    color: #f8fafc;
+  }
+
+  .mobile-toolbar-secondary {
+    --background: rgba(255, 255, 255, 0.02);
+    border-top: 1px solid var(--flymd-mobile-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 6px;
+  }
+
+  #mobile-mode-segment {
+    flex: 1;
+    --indicator-color: var(--flymd-accent);
+    --background: rgba(255, 255, 255, 0.04);
+    border-radius: 14px;
+    border: 1px solid var(--flymd-mobile-border);
+    padding: 2px;
+  }
+
+  ion-segment-button {
+    --color: #cbd5e1;
+    --color-checked: #0f172a;
+    --background: transparent;
+    --background-checked: #34c759;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .mobile-quick-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .mobile-content {
+    --background: transparent;
+  }
+
+  .mobile-container {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: calc(100dvh - 140px);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.8) 0%, rgba(5, 10, 20, 0.92) 100%);
+  }
+
+  @supports (height: 100dvh) {
+    .mobile-container {
+      min-height: calc(100dvh - 140px);
+    }
+  }
+
+  .pane {
+    background: var(--flymd-mobile-surface);
+    border: 1px solid var(--flymd-mobile-border);
+    border-radius: 18px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    padding: 12px;
+  }
+
+  .editor-pane textarea {
+    width: 100%;
+    min-height: 48vh;
+    background: transparent;
+    border: none;
+    color: var(--flymd-text);
+    font-size: 16px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  .preview-pane {
+    min-height: 48vh;
+    overflow: auto;
+  }
+
+  .preview-pane .preview {
+    background: transparent;
+    color: var(--flymd-text);
+  }
+
+  .statusbar,
+  .status-zoom {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--flymd-mobile-border);
+    border-radius: 12px;
+    padding: 8px 12px;
+    color: #cbd5e1;
+  }
+
+  .status-zoom button {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--flymd-mobile-border);
+    border-radius: 10px;
+    color: #f8fafc;
+    padding: 4px 10px;
+  }
+
+  .notification-container {
+    bottom: 120px;
+    right: 18px;
+  }
+
+  .mobile-drawer,
+  #fileTreePanel,
+  #library {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 56px);
+    bottom: 0;
+    right: 0;
+    width: 86vw;
+    max-width: 420px;
+    background: var(--flymd-mobile-surface);
+    border-left: 1px solid var(--flymd-mobile-border);
+    box-shadow: -12px 0 36px rgba(0, 0, 0, 0.4);
+    transform: translateX(100%);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
     z-index: 9999;
-    transition: left 0.3s ease;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+    overflow: auto;
   }
 
-  #fileTreePanel.mobile-open {
-    left: 0;
+  #library.mobile-open,
+  #fileTreePanel.mobile-open,
+  .mobile-drawer.mobile-open,
+  #library:not(.hidden) {
+    transform: translateX(0);
+    opacity: 1;
   }
 
-  /* 编辑器全屏 */
-  #editor {
-    width: 100vw !important;
-    height: calc(100vh - 48px) !important; /* 减去顶部工具栏 */
-    font-size: 16px !important; /* iOS 防止自动缩放 */
+  #fileTreePanel #library {
+    position: relative;
+    top: 0;
+    right: auto;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    transform: none;
+    opacity: 1;
+    box-shadow: none;
+    border-left: none;
   }
 
-  /* 预览区全屏 */
-  #preview {
-    width: 100vw !important;
-    height: calc(100vh - 48px) !important;
+  .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--flymd-mobile-border);
+    background: rgba(14, 22, 36, 0.96);
+    position: sticky;
+    top: 0;
+    z-index: 2;
   }
 
-  /* 顶部工具栏按钮加大（触摸友好） */
-  .toolbar button,
-  .toolbar select {
-    min-width: 44px !important;
-    min-height: 44px !important;
-    padding: 8px !important;
+  .drawer-title {
+    font-weight: 700;
+    color: #f8fafc;
+    letter-spacing: 0.01em;
   }
 
-  /* 隐藏部分桌面端功能 */
-  .desktop-only {
-    display: none !important;
+  .drawer-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    border: 1px solid var(--flymd-mobile-border);
+    background: rgba(255, 255, 255, 0.06);
+    color: #f8fafc;
+    font-size: 18px;
+    cursor: pointer;
   }
 
-  /* 文件库按钮（触发抽屉） */
-  #toggleFileTree {
-    display: block !important;
+  .drawer-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    z-index: 9990;
+    opacity: 0;
+    transition: opacity 0.25s ease;
   }
-}
 
-/* ========== 浮动操作按钮 (FAB) ========== */
-.fab-container {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 1000;
-  display: none; /* 默认隐藏，移动端显示 */
-}
+  .drawer-overlay.show {
+    display: block;
+    opacity: 1;
+  }
 
-@media (max-width: 768px) {
+  ion-fab#mobile-fab {
+    bottom: calc(env(safe-area-inset-bottom, 16px) + 16px);
+  }
+
+  ion-fab-button {
+    --background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+    --background-activated: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    font-weight: 700;
+  }
+
+  #fabMenu {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #fabMenu.open {
+    display: flex;
+  }
+
+  #fabMenu .fab-item {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  /* Fallback FAB 样式 */
   .fab-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
     display: block;
   }
-}
 
-.fab-main {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  color: white;
-  font-size: 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s, box-shadow 0.2s;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.fab-main:active {
-  transform: scale(0.95);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.fab-main.open {
-  transform: rotate(45deg);
-}
-
-/* FAB 子菜单 */
-.fab-menu {
-  position: absolute;
-  bottom: 70px;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s, transform 0.3s;
-  transform: translateY(20px);
-}
-
-.fab-menu.open {
-  opacity: 1;
-  pointer-events: all;
-  transform: translateY(0);
-}
-
-.fab-item {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #555;
-  border: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s, background 0.2s;
-  position: relative;
-}
-
-.fab-item:active {
-  transform: scale(0.9);
-}
-
-.fab-item[data-action="new"] {
-  background: #4caf50;
-}
-
-.fab-item[data-action="open"] {
-  background: #2196f3;
-}
-
-.fab-item[data-action="save"] {
-  background: #ff9800;
-}
-
-.fab-item[data-action="preview"] {
-  background: #9c27b0;
-}
-
-.fab-item[data-action="library"] {
-  background: #607d8b;
-}
-
-/* FAB 标签提示 */
-.fab-item::before {
-  content: attr(data-label);
-  position: absolute;
-  right: 58px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-
-.fab-item:hover::before {
-  opacity: 1;
-}
-
-/* ========== 虚拟键盘适配 ========== */
-/* 当虚拟键盘弹出时，调整编辑器高度 */
-@supports (height: 100dvh) {
-  @media (max-width: 768px) {
-    #editor {
-      height: calc(100dvh - 48px) !important;
-    }
-    #preview {
-      height: calc(100dvh - 48px) !important;
-    }
-  }
-}
-
-/* ========== 抽屉遮罩层 ========== */
-.drawer-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9998;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.drawer-overlay.show {
-  display: block;
-  opacity: 1;
-}
-
-/* ========== 移动端顶部工具栏精简 ========== */
-@media (max-width: 768px) {
-  .toolbar {
-    height: 48px !important;
-    padding: 4px 8px !important;
-    overflow-x: auto;
-    overflow-y: hidden;
-    white-space: nowrap;
-  }
-
-  /* 工具栏按钮图标模式（隐藏文字） */
-  .toolbar button span.text {
-    display: none;
-  }
-
-  /* 溢出菜单（三点） */
-  .toolbar-overflow {
-    display: inline-block !important;
-  }
-}
-
-/* ========== 触摸滚动优化 ========== */
-@media (max-width: 768px) {
-  #editor,
-  #preview,
-  #fileTreePanel {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-}
-
-/* ========== 暗色模式适配 ========== */
-@media (prefers-color-scheme: dark) {
   .fab-main {
-    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+    border: none;
+    color: #0b1220;
+    font-size: 24px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+  }
+
+  .fab-menu {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  .fab-menu.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
   }
 
   .fab-item {
-    background: #2d3748;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    border: 1px solid var(--flymd-mobile-border);
+    background: #1f2937;
+    color: #e5e7eb;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .window-controls {
+    display: none;
   }
 }

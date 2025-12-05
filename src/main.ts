@@ -1478,7 +1478,8 @@ function guard<T extends (...args: any[]) => any>(fn: T) {
 
 // UI 结构搭建
 const app = document.getElementById('app')!
-app.innerHTML = `
+const useMobileLayout = isMobilePlatform()
+const desktopLayout = `
   <div class="titlebar">
     <div class="menubar">
       <!-- 顶级菜单：文件 / 模式（参考 Windows 文本菜单） -->
@@ -1508,6 +1509,92 @@ app.innerHTML = `
     <div class="status-zoom" id="status-zoom"><span id="zoom-label">100%</span> <button id="zoom-reset" title="重置缩放">重置</button></div>
   </div>
 `
+const mobileLayout = `
+  <ion-app class="mobile-app">
+    <ion-page id="mobile-page">
+      <ion-header translucent>
+        <div class="titlebar mobile-titlebar">
+          <ion-toolbar class="mobile-toolbar">
+            <div class="menubar mobile-menubar">
+              <div class="menu-item" id="btn-open" title="${t('menu.file')}">${t('menu.file')}</div>
+              <div class="menu-item" id="btn-mode" title="${t('menu.mode')}">${t('menu.mode')}</div>
+              <div class="menu-item" id="btn-theme" title="主题">主题</div>
+              <div class="menu-item" id="btn-extensions" title="${t('menu.extensions')}">${t('menu.extensions')}</div>
+            </div>
+            <ion-title class="filename" id="filename">${t('filename.untitled')}</ion-title>
+          </ion-toolbar>
+          <ion-toolbar class="mobile-toolbar-secondary">
+            <ion-segment value="edit" id="mobile-mode-segment">
+              <ion-segment-button value="edit">
+                <ion-label>${t('mode.edit')}</ion-label>
+              </ion-segment-button>
+              <ion-segment-button value="preview">
+                <ion-label>${t('mode.read')}</ion-label>
+              </ion-segment-button>
+            </ion-segment>
+            <div class="mobile-quick-actions">
+              <div class="menu-item" id="btn-new" title="${t('file.new')} (Ctrl+N)">${t('file.new')}</div>
+              <div class="menu-item" id="btn-save" title="${t('file.save')} (Ctrl+S)">${t('file.save')}</div>
+              <div class="menu-item" id="btn-saveas" title="${t('file.saveas')} (Ctrl+Shift+S)">${t('file.saveas')}</div>
+              <div class="menu-item" id="btn-toggle" title="${t('mode.edit')}/${t('mode.read')} (Ctrl+E)">${t('mode.read')}</div>
+            </div>
+          </ion-toolbar>
+        </div>
+      </ion-header>
+      <ion-content fullscreen class="mobile-content">
+        <div class="focus-trigger-zone" id="focus-trigger-zone"></div>
+        <div class="container mobile-container">
+          <section class="pane editor-pane" id="editor-pane">
+            <textarea id="editor" class="editor" spellcheck="false" placeholder="${t('editor.placeholder')}"></textarea>
+          </section>
+          <section class="pane preview-pane hidden" id="preview-pane">
+            <div id="preview" class="preview hidden"></div>
+          </section>
+          <div class="statusbar" id="status">${fmtStatus(1,1)}</div>
+          <div class="notification-container" id="notification-container"></div>
+          <div class="status-zoom" id="status-zoom"><span id="zoom-label">100%</span> <button id="zoom-reset" title="重置缩放">重置</button></div>
+        </div>
+        <aside id="fileTreePanel" class="mobile-drawer hidden">
+          <div class="drawer-header">
+            <div class="drawer-title">${t('menu.file')}</div>
+            <button id="drawer-close" class="drawer-close" aria-label="关闭侧栏">×</button>
+          </div>
+        </aside>
+        <div class="drawer-overlay" id="drawerOverlay"></div>
+        <ion-fab vertical="bottom" horizontal="end" id="mobile-fab">
+          <ion-fab-button id="fabMain" aria-label="操作菜单">
+            <span>+</span>
+          </ion-fab-button>
+          <ion-fab-list side="top" id="fabMenu">
+            <ion-fab-button class="fab-item" data-action="library" aria-label="打开文件库" title="${t('menu.file')}">
+              <span aria-hidden="true">LIB</span>
+            </ion-fab-button>
+            <ion-fab-button class="fab-item" data-action="preview" aria-label="切换预览" title="${t('mode.read')}">
+              <span aria-hidden="true">PRE</span>
+            </ion-fab-button>
+            <ion-fab-button class="fab-item" data-action="save" aria-label="保存" title="${t('file.save')}">
+              <span aria-hidden="true">SAVE</span>
+            </ion-fab-button>
+            <ion-fab-button class="fab-item" data-action="open" aria-label="打开" title="${t('file.open') || t('menu.file')}">
+              <span aria-hidden="true">OPEN</span>
+            </ion-fab-button>
+            <ion-fab-button class="fab-item" data-action="new" aria-label="新建" title="${t('file.new')}">
+              <span aria-hidden="true">NEW</span>
+            </ion-fab-button>
+          </ion-fab-list>
+        </ion-fab>
+      </ion-content>
+      <ion-footer class="mobile-footer">
+        <div class="window-controls" id="window-controls" style="display:none;">
+          <button class="window-btn window-minimize" id="window-minimize" title="最小化">-</button>
+          <button class="window-btn window-maximize" id="window-maximize" title="最大化">+</button>
+          <button class="window-btn window-close" id="window-close" title="关闭">x</button>
+        </div>
+      </ion-footer>
+    </ion-page>
+  </ion-app>
+`
+app.innerHTML = useMobileLayout ? mobileLayout : desktopLayout
 try { logInfo('打点:DOM就绪') } catch {}
 
 // 性能标记：DOM 就绪
