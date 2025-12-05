@@ -8,18 +8,15 @@ import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 
 import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-import org.json.JSONObject;
-
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -27,29 +24,18 @@ import java.nio.charset.StandardCharsets;
 
 @CapacitorPlugin(name = "Saf")
 public class SafPlugin extends Plugin {
-    private PluginCall pendingPickCall;
-    private PluginCall pendingCreateCall;
-
-    private final ActivityResultLauncher<Intent> pickLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), this::handlePickResult);
-
-    private final ActivityResultLauncher<Intent> createLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), this::handleCreateResult);
-
     @PluginMethod
     public void pickDocument(PluginCall call) {
-        pendingPickCall = call;
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false);
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        pickLauncher.launch(intent);
+        startActivityForResult(call, intent, "handlePickResult");
     }
 
     @PluginMethod
     public void createDocument(PluginCall call) {
-        pendingCreateCall = call;
         String filename = call.getString("filename", "untitled.md");
         String mimeType = call.getString("mimeType", "text/markdown");
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
@@ -57,7 +43,7 @@ public class SafPlugin extends Plugin {
         intent.setType(mimeType);
         intent.putExtra(Intent.EXTRA_TITLE, filename);
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        createLauncher.launch(intent);
+        startActivityForResult(call, intent, "handleCreateResult");
     }
 
     @PluginMethod
@@ -80,7 +66,7 @@ public class SafPlugin extends Plugin {
                     content.append(line).append('\n');
                 }
             }
-            JSONObject result = new JSONObject();
+            JSObject result = new JSObject();
             result.put("content", content.toString());
             call.resolve(result);
         } catch (Exception e) {
@@ -127,11 +113,9 @@ public class SafPlugin extends Plugin {
         call.resolve();
     }
 
-    private void handlePickResult(ActivityResult result) {
-        if (pendingPickCall == null) return;
-        PluginCall call = pendingPickCall;
-        pendingPickCall = null;
-
+    @ActivityCallback
+    private void handlePickResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
         if (result.getResultCode() != getActivity().RESULT_OK || result.getData() == null) {
             call.reject("USER_CANCELED");
             return;
@@ -147,11 +131,9 @@ public class SafPlugin extends Plugin {
         resolveUri(call, uri);
     }
 
-    private void handleCreateResult(ActivityResult result) {
-        if (pendingCreateCall == null) return;
-        PluginCall call = pendingCreateCall;
-        pendingCreateCall = null;
-
+    @ActivityCallback
+    private void handleCreateResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
         if (result.getResultCode() != getActivity().RESULT_OK || result.getData() == null) {
             call.reject("USER_CANCELED");
             return;
@@ -170,7 +152,7 @@ public class SafPlugin extends Plugin {
     private void resolveUri(PluginCall call, Uri uri) {
         try {
             String name = queryDisplayName(uri);
-            JSONObject result = new JSONObject();
+            JSObject result = new JSObject();
             result.put("uri", uri.toString());
             result.put("name", name);
             call.resolve(result);
