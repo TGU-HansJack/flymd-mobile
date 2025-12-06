@@ -19,7 +19,11 @@ const _startTime = performance.now()
 import './style.css'
 import './mobile.css'  // 移动端样式
 import '@ionic/core/css/ionic.bundle.css'
+import 'ionicons/dist/collection/components/icon/icon.css'
 import { defineCustomElements } from '@ionic/pwa-elements/loader'
+import { defineCustomElements as defineIonicons } from 'ionicons/dist/loader'
+import { addIcons } from 'ionicons'
+import { addOutline, chevronBackOutline, chevronForwardOutline, documentOutline, documentTextOutline, eyeOutline, folderOpenOutline, folderOutline, listOutline, menuOutline, pin, pinOutline, refreshOutline, saveOutline, swapHorizontalOutline } from 'ionicons/icons'
 import { initThemeUI, applySavedTheme, updateChromeColorsForMode } from './theme'
 import { t, fmtStatus, getLocalePref, setLocalePref, getLocale } from './i18n'
 // KaTeX 样式改为按需动态加载（首次检测到公式时再加载）
@@ -52,6 +56,24 @@ import goodImgUrl from '../good.png?url'
 import { decorateCodeBlocks } from './decorate'
 import pkg from '../package.json'
 defineCustomElements(window)
+defineIonicons(window)
+addIcons({
+  'add-outline': addOutline,
+  'chevron-back-outline': chevronBackOutline,
+  'chevron-forward-outline': chevronForwardOutline,
+  'document-outline': documentOutline,
+  'document-text-outline': documentTextOutline,
+  'eye-outline': eyeOutline,
+  'folder-open-outline': folderOpenOutline,
+  'folder-outline': folderOutline,
+  'list-outline': listOutline,
+  'menu-outline': menuOutline,
+  'pin': pin,
+  'pin-outline': pinOutline,
+  'refresh-outline': refreshOutline,
+  'save-outline': saveOutline,
+  'swap-horizontal-outline': swapHorizontalOutline,
+})
 // htmlToMarkdown 改为按需动态导入（仅在粘贴 HTML 时使用）
 import { initWebdavSync, openWebdavSyncDialog, getWebdavSyncConfig, isWebdavConfiguredForActiveLibrary, syncNow as webdavSyncNow, setOnSyncComplete, openSyncLog as webdavOpenSyncLog } from './extensions/webdavSync'
 // 平台适配层（Android 支持）
@@ -1480,7 +1502,9 @@ function guard<T extends (...args: any[]) => any>(fn: T) {
 const app = document.getElementById('app')!
 app.innerHTML = `
   <div class="titlebar">
-      <button class="mobile-lib-toggle" id="mobile-lib-toggle" aria-label="${t('lib.menu')}">☰</button>
+      <button class="mobile-lib-toggle" id="mobile-lib-toggle" aria-label="${t('lib.menu')}" type="button">
+        <ion-icon name="menu-outline" aria-hidden="true"></ion-icon>
+      </button>
       <div class="menubar">
       <!-- 顶级菜单：文件 / 模式（参考 Windows 文本菜单） -->
       <div class="menu-item" id="btn-open" title="${t('menu.file')}">${t('menu.file')}</div>
@@ -3010,16 +3034,30 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
   library.innerHTML = `
     <div class="lib-header">
       <div class="lib-title-row">
-        <button class="lib-choose-btn" id="lib-choose">${t('lib.choose')}</button>
+        <button class="lib-choose-btn" id="lib-choose" title="${t('lib.choose')}" aria-label="${t('lib.choose')}" type="button">
+          <ion-icon name="folder-outline" aria-hidden="true"></ion-icon>
+        </button>
         <div class="lib-name" id="lib-path"></div>
-        <button class="lib-toggle-btn" id="lib-toggle">&lt;</button>
+        <button class="lib-toggle-btn" id="lib-toggle" title="${t('lib.menu')}" aria-label="${t('lib.menu')}" type="button">
+          <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+        </button>
       </div>
         <div class="lib-actions">
-          <button class="lib-action-btn active" id="lib-tab-files">${t('tab.files')}</button>
-          <button class="lib-action-btn" id="lib-tab-outline">${t('tab.outline')}</button>
-          <button class="lib-action-btn" id="lib-refresh">${t('lib.refresh')}</button>
-          <button class="lib-action-btn" id="lib-side">${t('lib.side.left')}</button>
-          <button class="lib-action-btn" id="lib-pin">${t('lib.pin.auto')}</button>
+          <button class="lib-action-btn active" id="lib-tab-files" title="${t('tab.files')}" aria-label="${t('tab.files')}" type="button">
+            <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon>
+          </button>
+          <button class="lib-action-btn" id="lib-tab-outline" title="${t('tab.outline')}" aria-label="${t('tab.outline')}" type="button">
+            <ion-icon name="list-outline" aria-hidden="true"></ion-icon>
+          </button>
+          <button class="lib-action-btn" id="lib-refresh" title="${t('lib.refresh')}" aria-label="${t('lib.refresh')}" type="button">
+            <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
+          </button>
+          <button class="lib-action-btn" id="lib-side" title="${t('lib.side.left')}" aria-label="${t('lib.side.left')}" type="button">
+            <ion-icon name="swap-horizontal-outline" aria-hidden="true"></ion-icon>
+          </button>
+          <button class="lib-action-btn" id="lib-pin" title="${t('lib.pin.auto')}" aria-label="${t('lib.pin.auto')}" type="button">
+            <ion-icon name="pin-outline" aria-hidden="true"></ion-icon>
+          </button>
         </div>
       </div>
       <div class="lib-tree" id="lib-tree"></div>
@@ -3078,7 +3116,7 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     // 绑定固定/自动切换按钮
       const elPin = library.querySelector('#lib-pin') as HTMLButtonElement | null
     if (elPin) {
-      ;(async () => { try { libraryDocked = await getLibraryDocked(); elPin.textContent = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed'); applyLibraryLayout() } catch {} })()
+      ;(async () => { try { libraryDocked = await getLibraryDocked(); updateLibraryPinButton(); applyLibraryLayout() } catch {} })()
       elPin.addEventListener('click', () => { void setLibraryDocked(!libraryDocked) })
     }
       const elSide = library.querySelector('#lib-side') as HTMLButtonElement | null
@@ -6166,8 +6204,24 @@ function updateLibrarySideButton() {
   try {
     const btn = document.getElementById('lib-side') as HTMLButtonElement | null
     if (!btn) return
-    btn.textContent = t(librarySide === 'right' ? 'lib.side.right' : 'lib.side.left')
+    const sideLabel = t(librarySide === 'right' ? 'lib.side.right' : 'lib.side.left')
+    btn.setAttribute('aria-label', sideLabel)
     btn.title = t('lib.side.toggle')
+    btn.setAttribute('data-side', librarySide)
+    btn.classList.toggle('side-right', librarySide === 'right')
+  } catch {}
+}
+
+function updateLibraryPinButton() {
+  try {
+    const btn = document.getElementById('lib-pin') as HTMLButtonElement | null
+    if (!btn) return
+    const label = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed')
+    btn.title = label
+    btn.setAttribute('aria-label', label)
+    btn.classList.toggle('active', libraryDocked)
+    const icon = btn.querySelector('ion-icon')
+    if (icon) icon.setAttribute('name', libraryDocked ? 'pin-outline' : 'pin')
   } catch {}
 }
 
@@ -6246,7 +6300,12 @@ function syncLibraryFloatToggle() {
       lib.classList.toggle('side-right', librarySide === 'right')
       lib.classList.toggle('side-left', librarySide !== 'right')
       const toggleBtn = document.getElementById('lib-toggle') as HTMLButtonElement | null
-      if (toggleBtn) toggleBtn.textContent = librarySide === 'right' ? '>' : '<'
+      if (toggleBtn) {
+        const icon = toggleBtn.querySelector('ion-icon')
+        if (icon) icon.setAttribute('name', librarySide === 'right' ? 'chevron-forward-outline' : 'chevron-back-outline')
+        toggleBtn.title = t('lib.menu')
+        toggleBtn.setAttribute('aria-label', t('lib.menu'))
+      }
       visible = !lib.classList.contains('hidden')
     }
       if (container) {
@@ -6315,8 +6374,7 @@ function syncLibraryFloatToggle() {
     try { if (persist && store) { await store.set('libraryDocked', libraryDocked); await store.save() } } catch {}
   // 更新按钮文案
   try {
-    const btn = document.getElementById('lib-pin') as HTMLButtonElement | null
-    if (btn) btn.textContent = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed')
+    updateLibraryPinButton()
   } catch {}
     applyLibraryLayout()
   // 若当前已显示且切到“非固定”，补绑定悬停自动隐藏
@@ -8153,15 +8211,32 @@ function applyI18nUi() {
       const chooseLabel = localeNow === 'en' ? (t as any)('lib.choose.short') ?? t('lib.choose') : t('lib.choose')
       const refreshLabel = localeNow === 'en' ? (t as any)('lib.refresh.short') ?? t('lib.refresh') : t('lib.refresh')
       const elF = document.getElementById('lib-tab-files') as HTMLButtonElement | null
-      if (elF) elF.textContent = String(filesLabel)
+      if (elF) {
+        elF.title = String(filesLabel)
+        elF.setAttribute('aria-label', String(filesLabel))
+      }
       const elO = document.getElementById('lib-tab-outline') as HTMLButtonElement | null
-      if (elO) elO.textContent = String(outlineLabel)
+      if (elO) {
+        elO.title = String(outlineLabel)
+        elO.setAttribute('aria-label', String(outlineLabel))
+      }
       const elC = document.getElementById('lib-choose') as HTMLButtonElement | null
-      if (elC) elC.textContent = String(chooseLabel)
+      if (elC) {
+        elC.title = String(chooseLabel)
+        elC.setAttribute('aria-label', String(chooseLabel))
+      }
       const elR = document.getElementById('lib-refresh') as HTMLButtonElement | null
-      if (elR) elR.textContent = String(refreshLabel)
-      const elP = document.getElementById('lib-pin') as HTMLButtonElement | null
-      if (elP) elP.textContent = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed')
+      if (elR) {
+        elR.title = String(refreshLabel)
+        elR.setAttribute('aria-label', String(refreshLabel))
+      }
+      const elToggle = document.getElementById('lib-toggle') as HTMLButtonElement | null
+      if (elToggle) {
+        const label = t('lib.menu')
+        elToggle.title = label
+        elToggle.setAttribute('aria-label', label)
+      }
+      updateLibraryPinButton()
       updateLibrarySideButton()
     } catch {}
     // 图床设置（若已创建）

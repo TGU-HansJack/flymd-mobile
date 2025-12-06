@@ -30,23 +30,23 @@ function createFAB(): void {
   container.className = 'fab-container'
   container.innerHTML = `
     <button class="fab-main" id="fabMain" aria-label="操作菜单">
-      <span>+</span>
+      <ion-icon name="add-outline" aria-hidden="true"></ion-icon>
     </button>
     <div class="fab-menu" id="fabMenu">
       <button class="fab-item" data-action="library" data-label="文件库" aria-label="打开文件库">
-        📁
+        <ion-icon name="folder-outline" aria-hidden="true"></ion-icon>
       </button>
       <button class="fab-item" data-action="preview" data-label="预览" aria-label="切换预览">
-        👁️
+        <ion-icon name="eye-outline" aria-hidden="true"></ion-icon>
       </button>
       <button class="fab-item" data-action="save" data-label="保存" aria-label="保存文件">
-        💾
+        <ion-icon name="save-outline" aria-hidden="true"></ion-icon>
       </button>
       <button class="fab-item" data-action="open" data-label="打开" aria-label="打开文件">
-        📂
+        <ion-icon name="folder-open-outline" aria-hidden="true"></ion-icon>
       </button>
       <button class="fab-item" data-action="new" data-label="新建" aria-label="新建文件">
-        📄
+        <ion-icon name="document-outline" aria-hidden="true"></ion-icon>
       </button>
     </div>
   `
