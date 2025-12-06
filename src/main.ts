@@ -1480,7 +1480,8 @@ function guard<T extends (...args: any[]) => any>(fn: T) {
 const app = document.getElementById('app')!
 app.innerHTML = `
   <div class="titlebar">
-    <div class="menubar">
+      <button class="mobile-lib-toggle" id="mobile-lib-toggle" aria-label="${t('lib.menu')}">☰</button>
+      <div class="menubar">
       <!-- 顶级菜单：文件 / 模式（参考 Windows 文本菜单） -->
       <div class="menu-item" id="btn-open" title="${t('menu.file')}">${t('menu.file')}</div>
       <div class="menu-item" id="btn-mode" title="${t('menu.mode')}">${t('menu.mode')}</div>
@@ -8524,14 +8525,21 @@ function bindEvents() {
   const btnSave = document.getElementById('btn-save')
   const btnSaveas = document.getElementById('btn-saveas')
   const btnToggle = document.getElementById('btn-toggle')
-  const btnNew = document.getElementById('btn-new')
-  const btnRecent = document.getElementById('btn-recent')
+    const btnNew = document.getElementById('btn-new')
+    const btnRecent = document.getElementById('btn-recent')
   const btnLibrary = document.getElementById('btn-library')
-  const btnAbout = document.getElementById('btn-about')
-  const btnUpdate = document.getElementById('btn-update')
-  const btnUploader = document.getElementById('btn-uploader')
-  const btnWysiwyg = document.getElementById('btn-wysiwyg')
-  const btnLang = document.getElementById('btn-lang')
+    const btnAbout = document.getElementById('btn-about')
+    const btnUpdate = document.getElementById('btn-update')
+    const btnUploader = document.getElementById('btn-uploader')
+    const btnWysiwyg = document.getElementById('btn-wysiwyg')
+    const btnLang = document.getElementById('btn-lang')
+    const mobileLibToggle = document.getElementById('mobile-lib-toggle') as HTMLButtonElement | null
+
+    if (mobileLibToggle && btnLibrary) {
+      mobileLibToggle.addEventListener('click', () => {
+        btnLibrary.click()
+      })
+    }
 
   if (btnOpen) btnOpen.addEventListener('click', guard(() => showFileMenu()))
   if (btnMode) btnMode.addEventListener('click', guard(() => showModeMenu()))

@@ -1,27 +1,40 @@
 /* 移动端 UI 适配样式 */
 
+/* 移动端专用库按钮（默认隐藏，仅移动端显示） */
+.mobile-lib-toggle {
+  display: none;
+}
+
 /* ========== 响应式布局 ========== */
 @media (max-width: 768px) {
-  /* 隐藏桌面端文件库侧边栏，改为抽屉式 */
-  #fileTreePanel {
+  /* 文档库：在移动端作为左侧抽屉覆盖显示 */
+  .library {
     position: fixed !important;
-    left: -85vw;
     top: 0;
+    bottom: 0;
+    left: 0;
     width: 85vw;
+    max-width: 320px;
     height: 100vh;
     z-index: 9999;
-    transition: left 0.3s ease;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease, opacity 0.3s ease;
   }
 
-  #fileTreePanel.mobile-open {
-    left: 0;
+  /* 工作区不再为库预留固定间距，改为被抽屉覆盖 */
+  .container {
+    --gap-left-library: 0 !important;
+    --gap-right-library: 0 !important;
+    --workspace-left-gap: 0 !important;
+    --workspace-right-gap: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 
   /* 编辑器全屏 */
   #editor {
     width: 100vw !important;
-    height: calc(100vh - 48px) !important; /* 减去顶部工具栏 */
+    height: calc(100vh - 48px) !important;
     font-size: 16px !important; /* iOS 防止自动缩放 */
   }
 
@@ -44,25 +57,76 @@
     display: none !important;
   }
 
-  /* 文件库按钮（触发抽屉） */
+  /* 旧文件库按钮（若存在） */
   #toggleFileTree {
     display: block !important;
+  }
+
+  /* 顶栏：移动端隐藏菜单/窗口按钮，只保留文件名和库入口 */
+  .titlebar .menubar,
+  .titlebar .window-controls {
+    display: none !important;
+  }
+
+  .titlebar {
+    height: 40px !important;
+    min-height: 40px !important;
+  }
+
+  .titlebar .filename {
+    padding: 0 8px !important;
+    justify-content: center;
+  }
+
+  .mobile-lib-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    border: none;
+    background: transparent;
+    color: var(--fg);
+    font-size: 20px;
+    padding: 0 4px;
+    -webkit-app-region: no-drag;
+  }
+
+  /* 移动端顶部工具栏精简 */
+  .toolbar {
+    height: 48px !important;
+    padding: 4px 8px !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+  }
+
+  /* 工具栏按钮图标模式（隐藏文字） */
+  .toolbar button span.text {
+    display: none;
+  }
+
+  /* 溢出菜单（三点） */
+  .toolbar-overflow {
+    display: inline-block !important;
+  }
+
+  /* 触摸滚动优化 */
+  #editor,
+  #preview,
+  #library {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 }
 
 /* ========== 浮动操作按钮 (FAB) ========== */
+/* 仅保留样式定义，实际在移动端不再显示 */
 .fab-container {
   position: fixed;
   bottom: 24px;
   right: 24px;
   z-index: 1000;
-  display: none; /* 默认隐藏，移动端显示 */
-}
-
-@media (max-width: 768px) {
-  .fab-container {
-    display: block;
-  }
+  display: none;
 }
 
 .fab-main {
@@ -203,37 +267,6 @@
 .drawer-overlay.show {
   display: block;
   opacity: 1;
-}
-
-/* ========== 移动端顶部工具栏精简 ========== */
-@media (max-width: 768px) {
-  .toolbar {
-    height: 48px !important;
-    padding: 4px 8px !important;
-    overflow-x: auto;
-    overflow-y: hidden;
-    white-space: nowrap;
-  }
-
-  /* 工具栏按钮图标模式（隐藏文字） */
-  .toolbar button span.text {
-    display: none;
-  }
-
-  /* 溢出菜单（三点） */
-  .toolbar-overflow {
-    display: inline-block !important;
-  }
-}
-
-/* ========== 触摸滚动优化 ========== */
-@media (max-width: 768px) {
-  #editor,
-  #preview,
-  #fileTreePanel {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
 }
 
 /* ========== 暗色模式适配 ========== */

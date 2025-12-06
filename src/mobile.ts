@@ -12,7 +12,7 @@ export function initMobileUI(): void {
   if (!isMobile()) return
 
   // 创建 FAB
-  createFAB()
+  createDrawerOverlay()
 
   // 创建抽屉遮罩层
   createDrawerOverlay()
