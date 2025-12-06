@@ -383,6 +383,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
     label.textContent = e.isDir ? e.name : stripExt(e.name)
 
     if (e.isDir) {
+      label.textContent = displayNameForRoot(e.path)
       const tg = makeTg()
       const ico = makeFolderIcon(e.path)
       row.appendChild(tg); row.appendChild(ico); row.appendChild(label)
