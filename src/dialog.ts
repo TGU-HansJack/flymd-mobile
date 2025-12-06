@@ -171,7 +171,7 @@ export function showThreeButtonDialog(
 
     const titleEl = document.createElement('div')
     titleEl.className = 'custom-dialog-title'
-    titleEl.innerHTML = `<span class="custom-dialog-icon">ℹ️</span>${title}`
+    titleEl.innerHTML = `<span class="custom-dialog-icon"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></span>${title}`
 
     const messageEl = document.createElement('div')
     messageEl.className = 'custom-dialog-message'
@@ -262,7 +262,7 @@ export function showConflictDialog(filename: string): Promise<ConflictResult> {
 
     const titleEl = document.createElement('div')
     titleEl.className = 'custom-dialog-title'
-    titleEl.innerHTML = `<span class="custom-dialog-icon">⚠️</span>文件冲突`
+    titleEl.innerHTML = `<span class="custom-dialog-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>文件冲突`
 
     const messageEl = document.createElement('div')
     messageEl.className = 'custom-dialog-message'
@@ -338,7 +338,7 @@ export function showLocalDeleteDialog(filename: string): Promise<TwoChoiceResult
 
     const titleEl = document.createElement('div')
     titleEl.className = 'custom-dialog-title'
-    titleEl.innerHTML = `<span class="custom-dialog-icon">🗑️</span>文件已删除`
+    titleEl.innerHTML = `<span class="custom-dialog-icon"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></span>文件已删除`
 
     const messageEl = document.createElement('div')
     messageEl.className = 'custom-dialog-message'
@@ -408,7 +408,7 @@ export function showRemoteDeleteDialog(filename: string): Promise<TwoChoiceResul
 
     const titleEl = document.createElement('div')
     titleEl.className = 'custom-dialog-title'
-    titleEl.innerHTML = `<span class="custom-dialog-icon">⚠️</span>远程文件已删除`
+    titleEl.innerHTML = `<span class="custom-dialog-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>远程文件已删除`
 
     const messageEl = document.createElement('div')
     messageEl.className = 'custom-dialog-message'
@@ -478,7 +478,7 @@ export function showUploadMissingRemoteDialog(filename: string): Promise<TwoChoi
 
     const titleEl = document.createElement('div')
     titleEl.className = 'custom-dialog-title'
-    titleEl.innerHTML = `<span class="custom-dialog-icon">📤</span>上传本地文件到远端`
+    titleEl.innerHTML = `<span class="custom-dialog-icon"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i></span>上传本地文件到远端`
 
     const messageEl = document.createElement('div')
     messageEl.className = 'custom-dialog-message'

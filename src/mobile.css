@@ -27,20 +27,24 @@
     --gap-right-library: 0 !important;
     --workspace-left-gap: 0 !important;
     --workspace-right-gap: 0 !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    padding-left: 0.5ch !important;
+    padding-right: 0.5ch !important;
   }
 
   /* 编辑器全屏 */
   #editor {
-    width: 100vw !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
     height: calc(100vh - 48px) !important;
     font-size: 16px !important; /* iOS 防止自动缩放 */
   }
 
   /* 预览区全屏 */
   #preview {
-    width: 100vw !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
     height: calc(100vh - 48px) !important;
   }
 

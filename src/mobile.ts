@@ -12,7 +12,7 @@ export function initMobileUI(): void {
   if (!isMobile()) return
 
   // 创建 FAB
-  createDrawerOverlay()
+  createFAB()
 
   // 创建抽屉遮罩层
   createDrawerOverlay()
@@ -26,27 +26,29 @@ export function initMobileUI(): void {
 
 // 创建浮动操作按钮
 function createFAB(): void {
+  const icon = (cls: string, label: string) =>
+    `<i class="${cls}" aria-hidden="true"></i><span class="sr-only">${label}</span>`
   const container = document.createElement('div')
   container.className = 'fab-container'
   container.innerHTML = `
     <button class="fab-main" id="fabMain" aria-label="操作菜单">
-      <span>+</span>
+      ${icon('fa-solid fa-plus', '操作菜单')}
     </button>
     <div class="fab-menu" id="fabMenu">
       <button class="fab-item" data-action="library" data-label="文件库" aria-label="打开文件库">
-        📁
+        ${icon('fa-solid fa-folder-open', '文件库')}
       </button>
       <button class="fab-item" data-action="preview" data-label="预览" aria-label="切换预览">
-        👁️
+        ${icon('fa-regular fa-eye', '预览')}
       </button>
       <button class="fab-item" data-action="save" data-label="保存" aria-label="保存文件">
-        💾
+        ${icon('fa-solid fa-floppy-disk', '保存')}
       </button>
       <button class="fab-item" data-action="open" data-label="打开" aria-label="打开文件">
-        📂
+        ${icon('fa-solid fa-folder', '打开')}
       </button>
       <button class="fab-item" data-action="new" data-label="新建" aria-label="新建文件">
-        📄
+        ${icon('fa-solid fa-file-circle-plus', '新建')}
       </button>
     </div>
   `

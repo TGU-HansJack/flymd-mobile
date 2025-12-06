@@ -18,6 +18,7 @@ const _startTime = performance.now()
 
 import './style.css'
 import './mobile.css'  // 移动端样式
+import '@fortawesome/fontawesome-free/css/all.min.css'
 import '@ionic/core/css/ionic.bundle.css'
 import { defineCustomElements } from '@ionic/pwa-elements/loader'
 import { initThemeUI, applySavedTheme, updateChromeColorsForMode } from './theme'
@@ -469,6 +470,8 @@ let stickyNoteReminders: StickyNoteReminderMap = {}   // 便签待办提醒状�
 // 边缘唤醒热区元素（非固定且隐藏时显示，鼠标靠近自动展开库）
 let _libEdgeEl: HTMLDivElement | null = null
 let _libFloatToggleEl: HTMLButtonElement | null = null
+let _settingsOverlayEl: HTMLDivElement | null = null
+let _settingsPluginListEl: HTMLDivElement | null = null
 function selectLibraryNode(el: HTMLElement | null, path: string | null, isDir: boolean) {
   try {
     if (selectedNodeEl) selectedNodeEl.classList.remove('selected')
@@ -874,38 +877,38 @@ async function buildBuiltinContextMenuItems(): Promise<ContextMenuItemConfig[]> 
   else if (!syncEnabled) syncNote = '未启用'
   items.push({
     label: t('sync.now') || '立即同步',
-    icon: '🔁',
+    icon: '<i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>',
     note: syncNote,
     disabled: !syncEnabled || !syncConfigured,
     onClick: async () => { await handleManualSyncFromMenu() }
   })
   items.push({
     label: t('sync.openlog') || '打开同步日志',
-    icon: '📘',
+    icon: '<i class="fa-solid fa-book-open" aria-hidden="true"></i>',
     onClick: async () => { await handleOpenSyncLogFromMenu() }
   })
   const enabled = await readUploaderEnabledState()
   items.push({
     label: t('menu.uploader') || '图床上传',
     note: enabled ? '已开启' : '未开启',
-    icon: '🖼️',
+    icon: '<i class="fa-solid fa-image" aria-hidden="true"></i>',
     onClick: async () => { await toggleUploaderEnabledFromMenu() }
   })
   items.push({ divider: true })
   items.push({
     label: t('menu.exportConfig') || '导出配置',
-    icon: '📦',
+    icon: '<i class="fa-solid fa-box-archive" aria-hidden="true"></i>',
     onClick: async () => { await handleExportConfigFromMenu() }
   })
   items.push({
     label: t('menu.importConfig') || '导入配置',
-    icon: '📥',
+    icon: '<i class="fa-solid fa-file-import" aria-hidden="true"></i>',
     onClick: async () => { await handleImportConfigFromMenu() }
   })
   const portableEnabled = await isPortableModeEnabled()
   items.push({
     label: t('menu.portableMode') || '便携模式',
-    icon: '💼',
+    icon: '<i class="fa-solid fa-briefcase" aria-hidden="true"></i>',
     note: portableEnabled ? (t('portable.enabledShort') || '已开启') : (t('portable.disabledShort') || '未开启'),
     tooltip: t('portable.tooltip') || '开启后将在程序目录写入所有配置，方便在U盘等便携设备上使用',
     onClick: async () => { await togglePortableModeFromMenu() }
@@ -1476,11 +1479,27 @@ function guard<T extends (...args: any[]) => any>(fn: T) {
   }
 }
 
+function setIconButton(el: HTMLElement | null, iconClass: string, label: string): void {
+  if (!el) return
+  const safeLabel = String(label || '')
+  el.innerHTML = ''
+  const icon = document.createElement('i')
+  icon.className = iconClass
+  icon.setAttribute('aria-hidden', 'true')
+  el.appendChild(icon)
+  const sr = document.createElement('span')
+  sr.className = 'sr-only'
+  sr.textContent = safeLabel
+  el.appendChild(sr)
+  el.setAttribute('aria-label', safeLabel)
+  el.setAttribute('title', safeLabel)
+}
+
 // UI 结构搭建
 const app = document.getElementById('app')!
 app.innerHTML = `
   <div class="titlebar">
-      <button class="mobile-lib-toggle" id="mobile-lib-toggle" aria-label="${t('lib.menu')}">☰</button>
+      <button class="mobile-lib-toggle" id="mobile-lib-toggle" aria-label="${t('lib.menu')}"><i class="fa-solid fa-bars" aria-hidden="true"></i><span class="sr-only">${t('lib.menu')}</span></button>
       <div class="menubar">
       <!-- 顶级菜单：文件 / 模式（参考 Windows 文本菜单） -->
       <div class="menu-item" id="btn-open" title="${t('menu.file')}">${t('menu.file')}</div>
@@ -2614,7 +2633,7 @@ if (menubar) {
   langBtn.id = 'btn-lang'
   langBtn.className = 'menu-item'
   langBtn.title = t('menu.language')
-  langBtn.textContent = '🌍'
+  try { setIconButton(langBtn, 'fa-solid fa-globe', t('menu.language')) } catch { langBtn.textContent = 'Lang' }
   try {
     const titlebar = document.querySelector('.titlebar') as HTMLDivElement | null
     const extBtn = document.getElementById('btn-extensions') as HTMLDivElement | null
@@ -2795,43 +2814,43 @@ class NotificationManager {
 
   private static readonly configs: Record<NotificationType, NotificationConfig> = {
     sync: {
-      icon: '🔄',
+      icon: '<i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>',
       bgColor: 'rgba(127,127,127,0.08)',
       duration: 5000
     },
     extension: {
-      icon: '🔔',
+      icon: '<i class="fa-solid fa-bell" aria-hidden="true"></i>',
       bgColor: 'rgba(34,197,94,0.12)',
       duration: 5000
     },
     appUpdate: {
-      icon: '⬆️',
+      icon: '<i class="fa-solid fa-circle-up" aria-hidden="true"></i>',
       bgColor: 'rgba(59,130,246,0.12)',
       duration: 10000,
       clickable: true
     },
     'plugin-success': {
-      icon: '✔',
+      icon: '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>',
       bgColor: 'rgba(34,197,94,0.12)', // 浅绿色
       duration: 2000
     },
     'plugin-error': {
-      icon: '✖',
+      icon: '<i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>',
       bgColor: 'rgba(239,68,68,0.12)', // 浅红色（red-500）
       duration: 3000
     },
     'mode-edit': {
-      icon: '✏️',
+      icon: '<i class="fa-solid fa-pen" aria-hidden="true"></i>',
       bgColor: 'rgba(59,130,246,0.14)', // 源码模式：偏蓝
       duration: 1600
     },
     'mode-preview': {
-      icon: '📖',
+      icon: '<i class="fa-solid fa-book-open" aria-hidden="true"></i>',
       bgColor: 'rgba(245,158,11,0.16)', // 阅读模式：偏暖
       duration: 1600
     },
     'mode-wysiwyg': {
-      icon: '📝',
+      icon: '<i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>',
       bgColor: 'rgba(139,92,246,0.16)', // 所见模式：偏紫
       duration: 1600
     }
@@ -3012,7 +3031,8 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
       <div class="lib-title-row">
         <button class="lib-choose-btn" id="lib-choose">${t('lib.choose')}</button>
         <div class="lib-name" id="lib-path"></div>
-        <button class="lib-toggle-btn" id="lib-toggle">&lt;</button>
+        <button class="lib-settings-btn" id="lib-settings" title="${t('ext.settings')}"><i class="fa-solid fa-gear" aria-hidden="true"></i><span class="sr-only">${t('ext.settings')}</span></button>
+        <button class="lib-toggle-btn" id="lib-toggle"><i class="fa-solid fa-angles-left" aria-hidden="true"></i><span class="sr-only">收起侧栏</span></button>
       </div>
         <div class="lib-actions">
           <button class="lib-action-btn active" id="lib-tab-files">${t('tab.files')}</button>
@@ -3078,7 +3098,13 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     // 绑定固定/自动切换按钮
       const elPin = library.querySelector('#lib-pin') as HTMLButtonElement | null
     if (elPin) {
-      ;(async () => { try { libraryDocked = await getLibraryDocked(); elPin.textContent = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed'); applyLibraryLayout() } catch {} })()
+      ;(async () => {
+        try {
+          libraryDocked = await getLibraryDocked()
+          setIconButton(elPin, 'fa-solid fa-thumbtack', libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed'))
+          applyLibraryLayout()
+        } catch {}
+      })()
       elPin.addEventListener('click', () => { void setLibraryDocked(!libraryDocked) })
     }
       const elSide = library.querySelector('#lib-side') as HTMLButtonElement | null
@@ -3088,6 +3114,10 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
         void setLibrarySide(librarySide === 'left' ? 'right' : 'left')
       })
     }
+      const settingsBtn = library.querySelector('#lib-settings') as HTMLButtonElement | null
+      if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => { void openSettingsOverlay() })
+      }
         // 绑定侧栏收起/展开按钮
         const elToggle = library.querySelector('#lib-toggle') as HTMLButtonElement | null
         if (elToggle) {
@@ -3103,8 +3133,7 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     const floatToggle = document.createElement('button')
     floatToggle.id = 'lib-float-toggle'
     floatToggle.className = 'lib-float-toggle side-left'
-    floatToggle.innerHTML = '&gt;'
-    floatToggle.title = '展开侧栏'
+    setIconButton(floatToggle, 'fa-solid fa-angles-right', t('lib.menu'))
     floatToggle.addEventListener('click', () => {
       try {
         showLibrary(true, false)
@@ -3727,7 +3756,7 @@ async function renderPreview() {
     buf.className = 'preview-body'
     buf.innerHTML = safe
     // 与所见模式一致：在消毒之后，用 KaTeX 对占位元素进行实际渲染
-    // 🔍 添加可视化调试面板
+    // 添加可视化调试面板
     // 【方案：使用与所见模式完全相同的方式】
     // 所见模式工作正常，直接复制其成功方案
     // 渲染 KaTeX 数学公式（阅读模式）
@@ -6166,7 +6195,9 @@ function updateLibrarySideButton() {
   try {
     const btn = document.getElementById('lib-side') as HTMLButtonElement | null
     if (!btn) return
-    btn.textContent = t(librarySide === 'right' ? 'lib.side.right' : 'lib.side.left')
+    const label = t(librarySide === 'right' ? 'lib.side.right' : 'lib.side.left')
+    const icon = librarySide === 'right' ? 'fa-solid fa-arrow-right' : 'fa-solid fa-arrow-left'
+    setIconButton(btn, icon, label)
     btn.title = t('lib.side.toggle')
   } catch {}
 }
@@ -6192,8 +6223,192 @@ function syncLibraryFloatToggle() {
     }
     _libFloatToggleEl.classList.toggle('side-right', librarySide === 'right')
     _libFloatToggleEl.classList.toggle('side-left', librarySide !== 'right')
-    _libFloatToggleEl.innerHTML = librarySide === 'right' ? '&lt;' : '&gt;'
+    const icon = librarySide === 'right' ? 'fa-solid fa-angles-left' : 'fa-solid fa-angles-right'
+    setIconButton(_libFloatToggleEl, icon, t('lib.menu'))
   } catch {}
+}
+
+function buildSettingsItem(id: string, icon: string, label: string, desc: string): string {
+  return `
+    <button class="settings-item" id="${id}" type="button">
+      <span class="settings-item-icon"><i class="${icon}" aria-hidden="true"></i></span>
+      <span class="settings-item-body">
+        <span class="settings-item-title">${label}</span>
+        <span class="settings-item-desc">${desc}</span>
+      </span>
+    </button>
+  `
+}
+
+function ensureSettingsOverlay(): HTMLDivElement | null {
+  if (_settingsOverlayEl && document.body.contains(_settingsOverlayEl)) return _settingsOverlayEl
+
+  const container = document.querySelector('.container') as HTMLDivElement | null
+  if (!container) return null
+
+  const settingsTitle = t('ext.settings') || '设置'
+  const basicTitle = '基础设置'
+  const featureTitle = '功能设置'
+  const pluginsTitle = '插件列表'
+  const closeLabel = t('about.close') || '关闭'
+  const backLabel = '返回'
+
+  const overlay = document.createElement('div')
+  overlay.id = 'settings-overlay'
+  overlay.className = 'settings-overlay'
+  overlay.setAttribute('aria-hidden', 'true')
+  overlay.innerHTML = `
+    <div class="settings-panel">
+      <div class="settings-header">
+        <button class="settings-back" id="settings-back" aria-label="${backLabel}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+        <div class="settings-title">${settingsTitle}</div>
+        <button class="settings-close" id="settings-close" aria-label="${closeLabel}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div class="settings-content">
+        <div class="settings-group">
+          <div class="settings-group-title"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>${basicTitle}</span></div>
+          <div class="settings-items">
+            ${buildSettingsItem('settings-about', 'fa-solid fa-circle-info', t('menu.about'), '查看应用信息与支持入口')}
+            ${buildSettingsItem('settings-theme', 'fa-solid fa-palette', '主题', '切换配色、行距与排版')}
+            ${buildSettingsItem('settings-update', 'fa-solid fa-arrows-rotate', t('menu.update'), '检查新版本与更新日志')}
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-group-title"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i><span>${featureTitle}</span></div>
+          <div class="settings-items">
+            ${buildSettingsItem('settings-webdav', 'fa-solid fa-cloud-arrow-left', 'WebDAV 同步', '配置云端同步与冲突策略')}
+            ${buildSettingsItem('settings-uploader', 'fa-solid fa-cloud-arrow-up', t('menu.uploader'), '粘贴/拖拽图片自动上传')}
+            ${buildSettingsItem('settings-ai', 'fa-solid fa-robot', 'AI 助手', '模型与密钥设置，打开独立面板')}
+            ${buildSettingsItem('settings-market', 'fa-solid fa-store', '扩展市场', '安装或管理插件与功能扩展')}
+          </div>
+        </div>
+        <div class="settings-group settings-plugins">
+          <div class="settings-group-title"><i class="fa-solid fa-plug-circle-check" aria-hidden="true"></i><span>${pluginsTitle}</span></div>
+          <div class="settings-plugin-list" id="settings-plugin-list"></div>
+        </div>
+      </div>
+    </div>
+  `
+
+  const closeOverlay = () => closeSettingsOverlay()
+  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeOverlay() })
+  const closeBtn = overlay.querySelector('#settings-close') as HTMLButtonElement | null
+  const backBtn = overlay.querySelector('#settings-back') as HTMLButtonElement | null
+  closeBtn?.addEventListener('click', closeOverlay)
+  backBtn?.addEventListener('click', closeOverlay)
+
+  const actionMap: Record<string, () => Promise<void> | void> = {
+    'settings-about': () => showAbout(true),
+    'settings-theme': () => { const btn = document.getElementById('btn-theme') as HTMLElement | null; btn?.click() },
+    'settings-update': () => checkUpdateInteractive(),
+    'settings-webdav': () => openWebdavSyncDialog(),
+    'settings-uploader': () => openUploaderDialog(),
+    'settings-ai': () => openAiAssistantSettings(),
+    'settings-market': () => showExtensionsOverlay(true),
+  }
+  Object.entries(actionMap).forEach(([id, action]) => {
+    const btn = overlay.querySelector(`#${id}`) as HTMLButtonElement | null
+    if (btn) btn.addEventListener('click', guard(async () => { closeOverlay(); await action() }))
+  })
+
+  _settingsPluginListEl = overlay.querySelector('#settings-plugin-list') as HTMLDivElement | null
+  container.appendChild(overlay)
+  _settingsOverlayEl = overlay
+  return overlay
+}
+
+function closeSettingsOverlay(): void {
+  try {
+    if (_settingsOverlayEl) {
+      _settingsOverlayEl.classList.remove('show')
+      _settingsOverlayEl.setAttribute('aria-hidden', 'true')
+    }
+  } catch {}
+}
+
+async function openSettingsOverlay(): Promise<void> {
+  try {
+    const overlay = ensureSettingsOverlay()
+    if (!overlay) return
+    overlay.classList.add('show')
+    overlay.setAttribute('aria-hidden', 'false')
+    await refreshSettingsPluginList()
+  } catch {}
+}
+
+async function refreshSettingsPluginList(): Promise<void> {
+  try {
+    const overlay = ensureSettingsOverlay()
+    const list = _settingsPluginListEl || (overlay?.querySelector('#settings-plugin-list') as HTMLDivElement | null)
+    if (!list) return
+    list.innerHTML = ''
+
+    let installed: Record<string, InstalledPlugin> = {}
+    try { installed = await getInstalledPlugins() } catch {}
+    const merged = new Map<string, InstalledPlugin>()
+    for (const p of builtinPlugins) merged.set(p.id, p)
+    for (const p of Object.values(installed || {})) {
+      if (p) merged.set(p.id, p)
+    }
+    const enabled = Array.from(merged.values()).filter((p) => p && p.enabled !== false)
+
+    if (enabled.length === 0) {
+      const empty = document.createElement('div')
+      empty.className = 'settings-empty'
+      empty.textContent = '暂无启用的插件'
+      list.appendChild(empty)
+      return
+    }
+
+    enabled.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
+
+    const frag = document.createDocumentFragment()
+    for (const p of enabled) {
+      const row = document.createElement('div')
+      row.className = 'settings-plugin'
+
+      const icon = document.createElement('span')
+      icon.className = 'settings-plugin-icon'
+      icon.innerHTML = '<i class="fa-solid fa-plug" aria-hidden="true"></i>'
+
+      const body = document.createElement('div')
+      body.className = 'settings-plugin-body'
+      const name = document.createElement('div')
+      name.className = 'settings-plugin-name'
+      name.textContent = p.name || p.id
+      const meta = document.createElement('div')
+      meta.className = 'settings-plugin-meta'
+      const parts: string[] = []
+      if (p.version) parts.push(`v${p.version}`)
+      if (p.builtin) parts.push('内置')
+      parts.push('已启用')
+      meta.textContent = parts.join(' · ')
+      body.appendChild(name)
+      body.appendChild(meta)
+
+      row.appendChild(icon)
+      row.appendChild(body)
+      frag.appendChild(row)
+    }
+    list.appendChild(frag)
+  } catch (e) {
+    console.error('渲染插件列表失败', e)
+  }
+}
+
+async function openAiAssistantSettings(): Promise<void> {
+  try {
+    const mod = activePlugins.get('ai-assistant') as any
+    const ctx = (window as any).__pluginCtx__?.['ai-assistant']
+    if (mod && ctx) {
+      if (typeof mod?.openSettings === 'function') { await mod.openSettings(ctx); return }
+      if (typeof mod?.openPanel === 'function') { await mod.openPanel(ctx); return }
+      if (typeof mod?.standalone === 'function') { await mod.standalone(ctx); return }
+    }
+  } catch (e) {
+    console.warn('打开 AI 助手设置失败', e)
+  }
+  try { await showExtensionsOverlay(true) } catch {}
 }
 
   function syncCustomTitlebarPlacement() {
@@ -6316,7 +6531,10 @@ function syncLibraryFloatToggle() {
   // 更新按钮文案
   try {
     const btn = document.getElementById('lib-pin') as HTMLButtonElement | null
-    if (btn) btn.textContent = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed')
+    if (btn) {
+      setIconButton(btn, 'fa-solid fa-thumbtack', libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed'))
+      btn.classList.toggle('pinned', !libraryDocked)
+    }
   } catch {}
     applyLibraryLayout()
   // 若当前已显示且切到“非固定”，补绑定悬停自动隐藏
@@ -7315,7 +7533,7 @@ function addStickyTodoButtons() {
         if (datetimeText) {
           const timeIcon = document.createElement('span')
           timeIcon.className = 'task-time-icon'
-          timeIcon.textContent = '🕐'
+          timeIcon.innerHTML = '<i class="fa-regular fa-clock" aria-hidden="true"></i>'
           item.appendChild(timeIcon)
         }
       } catch (e) {
@@ -7330,7 +7548,7 @@ function addStickyTodoButtons() {
       const pushBtn = document.createElement('button')
       pushBtn.className = 'sticky-todo-btn sticky-todo-push-btn'
       pushBtn.title = '推送到 xxtui'
-      pushBtn.innerHTML = '📤'
+      pushBtn.innerHTML = '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i>'
       pushBtn.addEventListener('click', async (e) => {
         e.stopPropagation()
         await handleStickyTodoPush(fullText, index)
@@ -7343,11 +7561,11 @@ function addStickyTodoButtons() {
       const hasReminder = !!(fileKey && stickyNoteReminders[fileKey] && stickyNoteReminders[fileKey][fullText])
       if (hasReminder) {
         reminderBtn.title = '已创建提醒'
-        reminderBtn.innerHTML = '🔔'
+        reminderBtn.innerHTML = '<i class="fa-solid fa-bell" aria-hidden="true"></i>'
         reminderBtn.classList.add('sticky-todo-reminder-created')
       } else {
         reminderBtn.title = '创建提醒 (@时间)'
-        reminderBtn.innerHTML = '⏰'
+        reminderBtn.innerHTML = '<i class="fa-regular fa-bell" aria-hidden="true"></i>'
       }
       reminderBtn.addEventListener('click', async (e) => {
         e.stopPropagation()
@@ -7422,12 +7640,12 @@ async function handleStickyTodoReminder(todoText: string, index: number, btn?: H
     const todoMarkdown = `- [ ] ${todoText}`
     const result = await api.parseAndCreateReminders(todoMarkdown)
 
-    if (result.success > 0) {
-      pluginNotice(`创建提醒成功: ${result.success} 条`, 'ok', 2000)
-      // 本地标记：当前条目已创建提醒，仅影响本次预览会话
-      try {
-        if (btn) {
-          btn.innerHTML = '🔔'
+      if (result.success > 0) {
+        pluginNotice(`创建提醒成功: ${result.success} 条`, 'ok', 2000)
+        // 本地标记：当前条目已创建提醒，仅影响本次预览会话
+        try {
+          if (btn) {
+          btn.innerHTML = '<i class="fa-solid fa-bell" aria-hidden="true"></i>'
           btn.title = '已创建提醒'
           btn.classList.add('sticky-todo-reminder-created')
         }
@@ -8126,6 +8344,9 @@ async function showLibraryMenu() {
 
 function applyI18nUi() {
   try {
+    try { _settingsOverlayEl?.remove() } catch {}
+    _settingsOverlayEl = null
+    _settingsPluginListEl = null
     // 菜单
     const map: Array<[string, string]> = [
       ['btn-open', t('menu.file')],
@@ -8136,11 +8357,37 @@ function applyI18nUi() {
       ['btn-library', t('lib.menu')],
       ['btn-update', t('menu.update')],
       ['btn-about', t('menu.about')],
+      ['btn-save', t('file.save')],
+      ['btn-saveas', t('file.saveas')],
+      ['btn-toggle', t('mode.read')],
+      ['btn-new', t('file.new')],
+      ['btn-lang', t('menu.language')],
     ]
-    for (const [id, text] of map) {
-      const el = document.getElementById(id) as HTMLDivElement | null
-      if (el) { el.textContent = text; el.title = text }
+    const menuIcons: Record<string, string> = {
+      'btn-open': 'fa-solid fa-folder-open',
+      'btn-mode': 'fa-solid fa-layer-group',
+      'btn-recent': 'fa-solid fa-clock-rotate-left',
+      'btn-uploader': 'fa-solid fa-cloud-arrow-up',
+      'btn-extensions': 'fa-solid fa-plug',
+      'btn-library': 'fa-solid fa-rectangle-list',
+      'btn-update': 'fa-solid fa-arrows-rotate',
+      'btn-about': 'fa-solid fa-circle-info',
+      'btn-save': 'fa-solid fa-floppy-disk',
+      'btn-saveas': 'fa-solid fa-file-arrow-up',
+      'btn-toggle': 'fa-solid fa-eye',
+      'btn-new': 'fa-solid fa-file-circle-plus',
+      'btn-lang': 'fa-solid fa-globe',
     }
+    for (const [id, text] of map) {
+      const el = document.getElementById(id) as HTMLElement | null
+      if (el && text) {
+        const icon = menuIcons[id]
+        if (icon) setIconButton(el, icon, text)
+        else { el.textContent = text; el.title = text }
+      }
+    }
+    const mobileToggle = document.getElementById('mobile-lib-toggle') as HTMLButtonElement | null
+    if (mobileToggle) setIconButton(mobileToggle, 'fa-solid fa-bars', t('lib.menu'))
     // 文件名/状态/编辑器占位
     try { (document.getElementById('editor') as HTMLTextAreaElement | null)?.setAttribute('placeholder', t('editor.placeholder')) } catch {}
     try { refreshTitle() } catch {}
@@ -8153,15 +8400,19 @@ function applyI18nUi() {
       const chooseLabel = localeNow === 'en' ? (t as any)('lib.choose.short') ?? t('lib.choose') : t('lib.choose')
       const refreshLabel = localeNow === 'en' ? (t as any)('lib.refresh.short') ?? t('lib.refresh') : t('lib.refresh')
       const elF = document.getElementById('lib-tab-files') as HTMLButtonElement | null
-      if (elF) elF.textContent = String(filesLabel)
+      if (elF) setIconButton(elF, 'fa-solid fa-file-lines', String(filesLabel))
       const elO = document.getElementById('lib-tab-outline') as HTMLButtonElement | null
-      if (elO) elO.textContent = String(outlineLabel)
+      if (elO) setIconButton(elO, 'fa-solid fa-list-ul', String(outlineLabel))
       const elC = document.getElementById('lib-choose') as HTMLButtonElement | null
-      if (elC) elC.textContent = String(chooseLabel)
+      if (elC) setIconButton(elC, 'fa-solid fa-folder-tree', String(chooseLabel))
       const elR = document.getElementById('lib-refresh') as HTMLButtonElement | null
-      if (elR) elR.textContent = String(refreshLabel)
+      if (elR) setIconButton(elR, 'fa-solid fa-rotate', String(refreshLabel))
       const elP = document.getElementById('lib-pin') as HTMLButtonElement | null
-      if (elP) elP.textContent = libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed')
+      if (elP) setIconButton(elP, 'fa-solid fa-thumbtack', libraryDocked ? t('lib.pin.auto') : t('lib.pin.fixed'))
+      const elSettings = document.getElementById('lib-settings') as HTMLButtonElement | null
+      if (elSettings) setIconButton(elSettings, 'fa-solid fa-gear', t('ext.settings'))
+      const elToggle = document.getElementById('lib-toggle') as HTMLButtonElement | null
+      if (elToggle) setIconButton(elToggle, librarySide === 'right' ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left', '收起侧栏')
       updateLibrarySideButton()
     } catch {}
     // 图床设置（若已创建）
@@ -10389,7 +10640,7 @@ function bindEvents() {
     // 核心功能：必须执行
     refreshTitle()
     refreshStatus()
-    bindEvents()  // 🔧 关键：无论存储是否成功，都要绑定事件
+    bindEvents()  // 关键：无论存储是否成功，都要绑定事件
     initContextMenuListener()  // 初始化右键菜单监听
     // 注意：专注模式状态恢复移至便签模式检测之后，见下方
     // 依据当前语言，应用一次 UI 文案（含英文简写，避免侧栏溢出）
@@ -10595,7 +10846,7 @@ function bindEvents() {
     console.error('应用启动失败:', error)
     showError('应用启动失败', error)
 
-    // 🔧 即使启动失败，也尝试绑定基本事件
+    // 即使启动失败，也尝试绑定基本事件
     try {
       bindEvents()
       console.log('已降级绑定基本事件')
