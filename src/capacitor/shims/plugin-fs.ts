@@ -156,21 +156,25 @@ export async function stat(path: string, options?: DirOption): Promise<{
   mtime: number | null
   ctime: number | null
   isDir: boolean
+  isDirectory: boolean
   isFile: boolean
 }> {
   if (path.startsWith('content://')) {
     const res = await Saf.stat({ uri: path })
-    return { size: res.size, mtime: res.mtime, ctime: null, isDir: res.isDir, isFile: !res.isDir }
+    const isDir = res.isDir
+    return { size: res.size, mtime: res.mtime, ctime: null, isDir, isDirectory: isDir, isFile: !isDir }
   }
   const res = await Filesystem.stat({
     path: normalizePath(path),
     directory: resolveDirectory(options?.dir)
   })
+  const isDir = res.type === 'directory'
   return {
     size: res.size ?? 0,
     mtime: res.mtime ?? null,
     ctime: res.ctime ?? null,
-    isDir: res.type === 'directory',
+    isDir,
+    isDirectory: isDir,
     isFile: res.type === 'file'
   }
 }
