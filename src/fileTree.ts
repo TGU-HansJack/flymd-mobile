@@ -1,15 +1,15 @@
-﻿import { readDir, stat, mkdir, rename, remove, exists, writeTextFile, writeFile, readFile, watchImmediate } from '@tauri-apps/plugin-fs'
+import { readDir, stat, mkdir, rename, remove, exists, writeTextFile, writeFile, readFile, watchImmediate } from '@tauri-apps/plugin-fs'
 import { t } from './i18n'
 import appIconUrl from '../Flymdnew.png?url'
 
 export type FileTreeOptions = {
-  // 鑾峰彇搴撴牴鐩綍锛堟湭璁剧疆鏃惰繑鍥?null锛?  getRoot: () => Promise<string | null>
-  // 鎵撳紑宸叉湁鏂囦欢锛堝弻鍑绘枃浠惰Е鍙戯級
+  // 获取库根目录（未设置时返�?null�?  getRoot: () => Promise<string | null>
+  // 打开已有文件（双击文件触发）
   onOpenFile: (path: string) => Promise<void> | void
-  // 鏂板缓鏂囦欢鍚庢墦寮€锛堢敤浜庨粯璁よ繘鍏ョ紪杈戞€侊級
+  // 新建文件后打开（用于默认进入编辑态）
   onOpenNewFile?: (path: string) => Promise<void> | void
-  // 鐘舵€佸彉鏇村洖璋冿紙閫変腑/灞曞紑鍙樺寲鏃跺彲閫氱煡澶栧眰锛?  onStateChange?: () => void
-  // 鏂囦欢琚Щ鍔ㄥ悗鐨勯€氱煡锛堢敤浜庡灞傛洿鏂板綋鍓嶆墦寮€鏂囦欢璺緞绛夛級
+  // 状态变更回调（选中/展开变化时可通知外层�?  onStateChange?: () => void
+  // 文件被移动后的通知（用于外层更新当前打开文件路径等）
   onMoved?: (src: string, dst: string) => Promise<void> | void
 }
 
@@ -19,7 +19,7 @@ export type FileTreeAPI = {
   getSelectedDir: () => string | null
   newFileInSelected: () => Promise<void>
   newFolderInSelected: () => Promise<void>
-  // 璁剧疆鎺掑簭鏂瑰紡
+  // 设置排序方式
   setSort: (mode: 'name_asc' | 'name_desc' | 'mtime_asc' | 'mtime_desc') => void
 }
 
@@ -73,11 +73,11 @@ function setExpandedState(path: string, expanded: boolean) {
   persistExpandedState()
 }
 
-// 鐩綍閫掑綊鍖呭惈鍙楁敮鎸佹枃妗ｇ殑缂撳瓨
+// 目录递归包含受支持文档的缓存
 const hasDocCache = new Map<string, boolean>()
 const hasDocPending = new Map<string, Promise<boolean>>()
 
-// 鏂囦欢澶硅嚜瀹氫箟鎺掑簭鏄犲皠锛氱埗鐩綍 -> 瀛愮洰褰曡矾寰?-> 椤哄簭绱㈠紩锛堜粎浣滅敤浜庢枃浠跺す锛?const folderOrder: Record<string, Record<string, number>> = {}
+// 文件夹自定义排序映射：父目录 -> 子目录路�?-> 顺序索引（仅作用于文件夹�?const folderOrder: Record<string, Record<string, number>> = {}
 const FOLDER_ORDER_KEY = 'flymd:folderOrder'
 
 function loadFolderOrder() {
@@ -104,15 +104,14 @@ function saveFolderOrder() {
   } catch {}
 }
 
-// 获取某父目录下单个子目录的手动顺序索引（未设置时返回 Infinity）
-function getFolderOrder(parent: string, child: string): number {
+// 获取某父目录下单个子目录的手动顺序索引（未设置时返回 Infinity�?function getFolderOrder(parent: string, child: string): number {
   const m = folderOrder[parent]
   if (!m) return Number.POSITIVE_INFINITY
   const n = m[child]
   return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY
 }
 
-// 鏇存柊鏌愮埗鐩綍涓嬬殑鏂囦欢澶归『搴忥紙浼犲叆褰撳墠鐨勫瓙鐩綍璺緞鏁扮粍锛屾寜璇ユ暟缁勯『搴忛噸寤虹储寮曪級
+// 更新某父目录下的文件夹顺序（传入当前的子目录路径数组，按该数组顺序重建索引）
 function setFolderOrderForParent(parent: string, children: string[]) {
   const m: Record<string, number> = {}
   let idx = 0
@@ -123,7 +122,7 @@ function setFolderOrderForParent(parent: string, children: string[]) {
   saveFolderOrder()
 }
 
-// 娓呯┖鏌愪釜鐖剁洰褰曚笅鐨勮嚜瀹氫箟鎺掑簭
+// 清空某个父目录下的自定义排序
 export function clearFolderOrderForParent(parent: string) {
   try {
     if (folderOrder[parent]) delete folderOrder[parent]
@@ -141,7 +140,7 @@ function friendlyDisplayName(raw: string): string {
   try {
     let name = raw || ''
     try { name = decodeURIComponent(name) } catch {}
-    // SAF tree/document/primary:xxx 褰㈠紡
+    // SAF tree/document/primary:xxx 形式
     if (name.includes(':')) name = name.split(':').pop() || name
     name = name.replace(/^tree\//i, '').replace(/^document\//i, '')
     name = name.split(/[/\\]+/).filter(Boolean).pop() || name
@@ -174,7 +173,7 @@ async function moveFileSafe(src: string, dst: string): Promise<void> {
   }
 }
 
-async function newFileSafe(dir: string, hint = '鏂板缓鏂囨。.md'): Promise<string> {
+async function newFileSafe(dir: string, hint = '新建文档.md'): Promise<string> {
   const s = sep(dir)
   let n = hint, i = 1
   while (await exists(dir + s + n)) {
@@ -183,17 +182,17 @@ async function newFileSafe(dir: string, hint = '鏂板缓鏂囨。.md'): Promise
   }
   const full = dir + s + n
   await ensureDir(dir)
-  await writeTextFile(full, '# 鏍囬\n\n', {} as any)
+  await writeTextFile(full, '# 标题\n\n', {} as any)
   return full
 }
 
-async function newFolderSafe(dir: string, hint = '鏂板缓鏂囦欢澶?): Promise<string> {
+async function newFolderSafe(dir: string, hint = '新建文件�?): Promise<string> {
   const s = sep(dir)
   let n = hint, i = 1
   while (await exists(dir + s + n)) { n = `${hint} ${++i}` }
   const full = dir + s + n
   await mkdir(full, { recursive: true } as any)
-  // 鍒涘缓涓€涓崰浣嶆枃浠讹紝浣挎枃浠跺す鍦ㄥ簱渚ф爮涓彲瑙?  const placeholder = full + s + 'README.md'
+  // 创建一个占位文件，使文件夹在库侧栏中可�?  const placeholder = full + s + 'README.md'
   await writeTextFile(placeholder, '# ' + n + '\n\n', {} as any)
   return full
 }
@@ -241,7 +240,7 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
   let ents: any[] = []
   try { ents = await readDir(dir, { recursive: false } as any) as any[] } catch { ents = [] }
   const dirs: { name: string; path: string; isDir: boolean; mtime?: number }[] = []
-  // 浠呭睍绀烘寚瀹氬悗缂€鐨勬枃妗ｏ紙md / markdown / txt / pdf锛?  const allow = new Set(['md', 'markdown', 'txt', 'pdf'])
+  // 仅展示指定后缀的文档（md / markdown / txt / pdf�?  const allow = new Set(['md', 'markdown', 'txt', 'pdf'])
   for (const it of ents) {
     const needMtime = (state.sortMode === 'mtime_asc' || state.sortMode === 'mtime_desc')
     const p: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
@@ -254,7 +253,7 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
       try { st = await stat(p) as any } catch {}
     }
     if (isDir) {
-      // 浠呬繚鐣欌€滃寘鍚彈鏀寔鏂囨。(閫掑綊)鈥濈殑鐩綍
+      // 仅保留“包含受支持文档(递归)”的目录
       if (await dirHasSupportedDocRecursive(p, allow)) {
         dirs.push({ name: nameOf(p), path: p, isDir: true, mtime: needMtime ? toMtimeMs(st) : undefined })
       }
@@ -270,7 +269,7 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
   const pdfGrouped = (base: (a: any, b: any) => number) => (a: any, b: any) => {
     const ap = isPdf(a)
     const bp = isPdf(b)
-    // pdf 姘歌繙鎴愮粍锛氶潪 pdf 鍦ㄥ墠锛宲df 鍦ㄥ悗
+    // pdf 永远成组：非 pdf 在前，pdf 在后
     if (ap && !bp) return 1
     if (!ap && bp) return -1
     return base(a, b)
@@ -281,7 +280,7 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
   const byMtimeAsc = (a: any, b: any) => ((a.mtime ?? 0) - (b.mtime ?? 0)) || a.name.localeCompare(b.name)
   const byMtimeDesc = (a: any, b: any) => ((b.mtime ?? 0) - (a.mtime ?? 0)) || a.name.localeCompare(b.name)
 
-  // 鐩綍鎺掑簭锛氭墜鍔ㄩ『搴?+ 鍘熸湁瑙勫垯
+  // 目录排序：手动顺�?+ 原有规则
   const dirManualFirst = (cmp: (a: any, b: any) => number) => (a: any, b: any) => {
     const oa = getFolderOrder(dir, a.path)
     const ob = getFolderOrder(dir, b.path)
@@ -301,7 +300,7 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
   return [...dirs, ...items]
 }
 
-// 閫掑綊鍒ゆ柇鐩綍鏄惁鍖呭惈鍙楁敮鎸佹枃妗ｏ紙甯︾紦瀛橈級
+// 递归判断目录是否包含受支持文档（带缓存）
 async function dirHasSupportedDocRecursive(dir: string, allow: Set<string>, depth = 20): Promise<boolean> {
   try {
     if (hasDocCache.has(dir)) return hasDocCache.get(dir) as boolean
@@ -311,7 +310,7 @@ async function dirHasSupportedDocRecursive(dir: string, allow: Set<string>, dept
       if (depth <= 0) { hasDocCache.set(dir, false); return false }
       let entries: any[] = []
       try { entries = await readDir(dir, { recursive: false } as any) as any[] } catch { entries = [] }
-      // 鍏堟壂鎻忔湰灞傛枃浠?      for (const it of (entries || [])) {
+      // 先扫描本层文�?      for (const it of (entries || [])) {
         const full: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
         let isDir = false
          if ((it as any)?.isDirectory !== undefined) { isDir = !!(it as any)?.isDirectory } else { try { isDir = !!(await stat(full) as any)?.isDirectory } catch { isDir = false } }
@@ -321,7 +320,7 @@ async function dirHasSupportedDocRecursive(dir: string, allow: Set<string>, dept
           if (allow.has(ext)) { hasDocCache.set(dir, true); return true }
         }
       }
-      // 鍐嶉€掑綊瀛愮洰褰?      for (const it of (entries || [])) {
+      // 再递归子目�?      for (const it of (entries || [])) {
         const full: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
         let isDir = false
          if ((it as any)?.isDirectory !== undefined) { isDir = !!(it as any)?.isDirectory } else { try { isDir = !!(await stat(full) as any)?.isDirectory } catch { isDir = false } }
@@ -344,8 +343,8 @@ function makeTg(): HTMLElement { const s = document.createElementNS('http://www.
 function makeFolderIcon(path?: string): HTMLElement {
   const span=document.createElement('span')
   span.className='lib-ico lib-ico-folder'
-  // 浼樺厛浣跨敤鍗曚釜鏂囦欢澶圭殑鑷畾涔夊浘鏍囷紝鍏舵浣跨敤鍏ㄥ眬榛樿
-  let icon = '馃梻锔?
+  // 优先使用单个文件夹的自定义图标，其次使用全局默认
+  let icon = '🗂�?
   try {
     if (path) {
       const customIcons = JSON.parse(localStorage.getItem('flymd:folderIcons') || '{}')
@@ -364,7 +363,7 @@ function makeFolderIcon(path?: string): HTMLElement {
   return span as any
 }
 
-// 绉婚櫎鏂囦欢鍚庣紑鍚嶏紙鐢ㄤ簬绠€娲佹樉绀猴級
+// 移除文件后缀名（用于简洁显示）
 function stripExt(name: string): string {
   const idx = name.lastIndexOf('.')
   return idx > 0 ? name.slice(0, idx) : name
@@ -376,7 +375,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
   const dirEntries = entries.filter(e => e.isDir)
   const fileEntries = entries.filter(e => !e.isDir)
 
-  // 鐩綍琛屾瀯寤烘椂锛岄渶瑕佺煡閬撳悓绾х洰褰曠殑椤哄簭锛岀敤浜庢嫋鎷芥帓搴忓悗閲嶅啓 folderOrder
+  // 目录行构建时，需要知道同级目录的顺序，用于拖拽排序后重写 folderOrder
   const allDirPaths = dirEntries.map(e => e.path)
 
   for (const e of [...dirEntries, ...fileEntries]) {
@@ -385,7 +384,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
     ;(row as any).dataset.path = e.path
     const label = document.createElement('span')
     label.className = 'lib-name'
-    // 文件隐藏扩展名，文件夹保持原名（友好化 SAF 名称)
+    // �ļ�������չ�����ļ��б���ԭ�����Ѻû� SAF ����)
     const dispName = friendlyDisplayName(e.name)
     label.textContent = e.isDir ? dispName : stripExt(dispName)
 
@@ -413,7 +412,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         if (now && kids.childElementCount === 0) await buildDir(root, e.path, kids)
       })
 
-      // 鐩綍鍚岀骇鍐呴儴鎷栨嫿鎺掑簭锛堜粎浣滅敤浜庢樉绀洪『搴忥紝涓嶇Щ鍔ㄧ湡瀹炴枃浠讹級
+      // 目录同级内部拖拽排序（仅作用于显示顺序，不移动真实文件）
       ;(() => {
         let down = false
         let sx = 0, sy = 0
@@ -430,7 +429,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             ghost = document.createElement('div')
             ghost.className = 'ft-ghost'
             const gico = document.createElement('span')
-            gico.textContent = '馃梻锔?
+            gico.textContent = '🗂�?
             gico.style.marginRight = '6px'
             const glab = document.createElement('span')
             glab.textContent = friendlyDisplayName(e.name)
@@ -497,9 +496,9 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
 
         row.addEventListener('mousedown', (ev) => {
           if (ev.button !== 0) return
-          // Ctrl/Shift 绛夌粍鍚堥敭淇濈暀缁欓€夋嫨锛岄伩鍏嶈鍚姩鎺掑簭鎷栨嫿
+          // Ctrl/Shift 等组合键保留给选择，避免误启动排序拖拽
           if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return
-          // 鍦ㄧ洰褰曡妭鐐逛笂鎸変綇宸﹂敭锛屽惎鍔ㄦ帓搴忔嫋鎷藉噯澶?          down = true
+          // 在目录节点上按住左键，启动排序拖拽准�?          down = true
           moved = false
           sx = ev.clientX
           sy = ev.clientY
@@ -512,15 +511,15 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         ev.preventDefault()
         if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move'
         row.classList.add('selected')
-        console.log('[鎷栧姩] 鎷栧姩鍒版枃浠跺す:', e.path)
+        console.log('[拖动] 拖动到文件夹:', e.path)
       })
-      // 涓€浜涘钩鍙伴渶瑕佸湪 dragenter 鍚屾牱 preventDefault锛屾墠鑳戒粠鈥滅姝⑩€濆厜鏍囧垏鍒板彲鏀剧疆
+      // 一些平台需要在 dragenter 同样 preventDefault，才能从“禁止”光标切到可放置
       row.addEventListener('dragenter', (ev) => { try { ev.preventDefault(); if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move'; row.classList.add('selected') } catch {} })
       row.addEventListener('dragleave', () => { row.classList.remove('selected') })
       row.addEventListener('drop', async (ev) => {
         try {
           ev.preventDefault(); row.classList.remove('selected')
-          console.log('[鎷栧姩] Drop浜嬩欢瑙﹀彂锛岀洰鏍囨枃浠跺す:', e.path)
+          console.log('[拖动] Drop事件触发，目标文件夹:', e.path)
           const src = ev.dataTransfer?.getData('text/plain') || ''
           if (!src) return
           const dst = join(e.path, nameOf(src))
@@ -545,16 +544,16 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           }
           try { await state.opts?.onMoved?.(src, finalDst) } catch {}
           await refresh()
-          console.log('[鎷栧姩] 绉诲姩瀹屾垚:', src, '鈫?, finalDst)
-        } catch (err) { console.error('[鎷栧姩] 绉诲姩澶辫触:', err) }
+          console.log('[拖动] 移动完成:', src, '�?, finalDst)
+        } catch (err) { console.error('[拖动] 移动失败:', err) }
       })
     } else {
-      // 涓烘枃浠舵樉绀虹被鍨嬪寲鍥炬爣锛?      // - markdown/txt 浣跨敤绠€娲佺殑鈥滄枃妗ｅ舰鐘垛€濆浘鏍囷紝骞舵樉绀?MD/TXT 鏍囪瘑
-      // - pdf 浣跨敤绋嬪簭鍥炬爣鐨勭孩鑹插彉浣擄紙閫氳繃 CSS 婊ら暅瀹炵幇鍖哄垎锛?      // - 鍏朵粬绫诲瀷浣跨敤绋嬪簭鍥炬爣
+      // 为文件显示类型化图标�?      // - markdown/txt 使用简洁的“文档形状”图标，并显�?MD/TXT 标识
+      // - pdf 使用程序图标的红色变体（通过 CSS 滤镜实现区分�?      // - 其他类型使用程序图标
       const ext = (() => { try { return (e.name.split('.').pop() || '').toLowerCase() } catch { return '' } })()
       let iconEl: HTMLElement
       if (ext === 'md' || ext === 'markdown') {
-        // 鎸夌収鐢ㄦ埛瑕佹眰锛歁D 鍥炬爣淇濇寔鍘熸牱锛堢▼搴忓浘鏍囷級锛屼笉瑕佹敼鍔?        const img = document.createElement('img')
+        // 按照用户要求：MD 图标保持原样（程序图标），不要改�?        const img = document.createElement('img')
         img.className = 'lib-ico lib-ico-app'
         try { img.setAttribute('src', appIconUrl) } catch {}
         iconEl = img
@@ -573,9 +572,9 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         try { img.setAttribute('src', appIconUrl) } catch {}
         iconEl = img
       }
-      // 璁╁浘鏍囦笌鏂囧瓧閮芥垚涓哄彲鎷栨嫿璧风偣锛堟煇浜涘唴鏍镐粎瑙﹀彂鈥滆鎸変綇鍏冪礌鈥濈殑鎷栨嫿锛屼笉浼氶€忎紶鍒扮埗鍏冪礌锛?      try { iconEl.setAttribute('draggable', 'true') } catch {}
+      // 让图标与文字都成为可拖拽起点（某些内核仅触发“被按住元素”的拖拽，不会透传到父元素�?      try { iconEl.setAttribute('draggable', 'true') } catch {}
       try { label.setAttribute('draggable', 'true') } catch {}
-      // 缁熶竴鐨勬嫋鎷藉惎鍔ㄥ鐞嗭紙Edge/WebView2 鍏煎锛氳缃?dataTransfer 涓庢嫋鎷藉奖鍍忥級
+      // 统一的拖拽启动处理（Edge/WebView2 兼容：设�?dataTransfer 与拖拽影像）
       let nativeDragStarted = false
       const startDrag = (ev: DragEvent) => {
         try {
@@ -583,8 +582,8 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           const dt = ev.dataTransfer
           if (!dt) return
           nativeDragStarted = true
-          // 蹇呴』鑷冲皯鍐欏叆涓€绉嶇被鍨嬬殑鏁版嵁锛屽惁鍒欐煇浜涘唴鏍镐細鍒ゅ畾涓衡€滄棤鏁堟嫋鎷解€?          dt.setData('text/plain', e.path)
-          // 鍏煎鏌愪簺瑙ｆ瀽鍣細闄勫甫 URI 鍒楄〃
+          // 必须至少写入一种类型的数据，否则某些内核会判定为“无效拖拽�?          dt.setData('text/plain', e.path)
+          // 兼容某些解析器：附带 URI 列表
           try {
             const fileUrl = (() => {
               try {
@@ -594,15 +593,15 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             })()
             if (fileUrl) dt.setData('text/uri-list', fileUrl)
           } catch {}
-          // 鍏佽绉诲姩/澶嶅埗锛堢敱鐩爣鍐冲畾 dropEffect锛?          dt.effectAllowed = 'copyMove'
-          // 鎻愪緵鎷栨嫿褰卞儚锛岄伩鍏嶅嚭鐜版棤棰勮鏃剁殑鈥滅姝⑩€濇彁绀?          try { dt.setDragImage(row, 4, 4) } catch {}
+          // 允许移动/复制（由目标决定 dropEffect�?          dt.effectAllowed = 'copyMove'
+          // 提供拖拽影像，避免出现无预览时的“禁止”提�?          try { dt.setDragImage(row, 4, 4) } catch {}
         } catch {}
       }
       row.addEventListener('dragstart', startDrag)
       iconEl.addEventListener('dragstart', startDrag as any)
       label.addEventListener('dragstart', startDrag as any)
-      // 鑷粯鎷栨嫿鍏滃簳锛氬湪鏌愪簺 WebView2 鍦烘櫙涓嬶紝鍘熺敓 DnD 浼氫竴鐩存樉绀虹姝㈠浘鏍囷紝
-      // 鎴戜滑鍦ㄧЩ鍔ㄩ槇鍊艰Е鍙戝悗鍚敤鑷粯鎷栨嫿锛屾ā鎷熲€滄嫋鍒版枃浠跺す閲婃斁鍗冲彲绉诲姩鈥濄€?      const setupFallbackDrag = (host: HTMLElement) => {
+      // 自绘拖拽兜底：在某些 WebView2 场景下，原生 DnD 会一直显示禁止图标，
+      // 我们在移动阈值触发后启用自绘拖拽，模拟“拖到文件夹释放即可移动”�?      const setupFallbackDrag = (host: HTMLElement) => {
         let down = false, sx = 0, sy = 0, moved = false
         let ghost: HTMLDivElement | null = null
         let hoverEl: HTMLElement | null = null
@@ -617,14 +616,14 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         }
         const onMove = (ev: MouseEvent) => {
           if (!down) return
-          // 鑻ュ師鐢熸嫋鎷藉凡缁忓惎鍔紝鏀惧純鍏滃簳
+          // 若原生拖拽已经启动，放弃兜底
           if (nativeDragStarted) { cleanup(); return }
           const dx = ev.clientX - sx, dy = ev.clientY - sy
           if (!moved && Math.hypot(dx, dy) > 6) {
             moved = true
             ghost = document.createElement('div')
             ghost.className = 'ft-ghost'
-            // 鍥炬爣
+            // 图标
             const gico = document.createElement('img')
             try { gico.setAttribute('src', appIconUrl) } catch {}
             gico.style.width = '16px'
@@ -632,14 +631,14 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             gico.style.borderRadius = '3px'
             gico.style.objectFit = 'cover'
             gico.style.marginRight = '6px'
-            // 鏂囨湰
+            // 文本
             const glab = document.createElement('span')
             glab.textContent = friendlyDisplayName(e.name)
             glab.style.fontSize = '12px'
-            // 缁勫悎
+            // 组合
             ghost.appendChild(gico)
             ghost.appendChild(glab)
-            // 浣嶇疆涓庨€氱敤鏍峰紡锛堝厹搴曪級
+            // 位置与通用样式（兜底）
             ghost.style.position = 'fixed'
             ghost.style.left = ev.clientX + 8 + 'px'
             ghost.style.top = ev.clientY + 8 + 'px'
@@ -657,7 +656,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           if (moved && ghost) {
             ghost.style.left = ev.clientX + 8 + 'px'
             ghost.style.top = ev.clientY + 8 + 'px'
-            // 鍛戒腑娴嬭瘯锛氭煡鎵鹃紶鏍囦笅鐨勭洰褰曡妭鐐?            let el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null
+            // 命中测试：查找鼠标下的目录节�?            let el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null
             let tgt = el?.closest?.('.lib-node.lib-dir') as HTMLElement | null
             if (hoverEl && hoverEl !== tgt) hoverEl.classList.remove('selected')
             if (tgt) tgt.classList.add('selected')
@@ -694,7 +693,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             }
             try { await state.opts?.onMoved?.(e.path, finalDst) } catch {}
             await refresh()
-          } catch (err) { console.error('[鎷栧姩] 鍏滃簳绉诲姩澶辫触:', err) }
+          } catch (err) { console.error('[拖动] 兜底移动失败:', err) }
         }
         const cleanup = () => {
           document.removeEventListener('mousemove', onMove)
@@ -712,9 +711,9 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         }
         const onDown = (ev: MouseEvent) => {
           if (ev.button !== 0) return
-          // 鍏佽鏂囨湰閫夋嫨/鐐瑰嚮锛屼笉闃绘榛樿锛涘厹搴曡Е鍙戜緷闈犵Щ鍔ㄩ槇鍊?          down = true; sx = ev.clientX; sy = ev.clientY; moved = false; nativeDragStarted = false
+          // 允许文本选择/点击，不阻止默认；兜底触发依靠移动阈�?          down = true; sx = ev.clientX; sy = ev.clientY; moved = false; nativeDragStarted = false
           try { ev.stopPropagation() } catch {}
-          // 鏆傛椂绂佺敤鍘熺敓 DnD锛岄伩鍏嶉樆鏂?mousemove
+          // 暂时禁用原生 DnD，避免阻�?mousemove
           try {
             prevRowDraggable = row.getAttribute('draggable')
             prevIconDraggable = (iconEl as any).getAttribute?.('draggable') ?? null
@@ -730,13 +729,13 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         }
         host.addEventListener('mousedown', onDown, true)
       }
-      // 灏嗗厹搴曟嫋鎷戒粎缁戝畾鍒版暣琛岋紝閬垮厤澶氭缁戝畾閫犳垚澶氫釜鈥滃菇鐏碘€濋仐鐣?      setupFallbackDrag(row)
+      // 将兜底拖拽仅绑定到整行，避免多次绑定造成多个“幽灵”遗�?      setupFallbackDrag(row)
       row.appendChild(iconEl); row.appendChild(label)
       try { if (ext) row.classList.add('file-ext-' + ext) } catch {}
 
-      // 鍗曞嚮鍔犺浇鏂囨。骞朵繚鎸侀€変腑锛涙敮鎸?Ctrl+宸﹂敭鍦ㄦ柊鏍囩涓墦寮€骞惰繘鍏ユ簮鐮佹ā寮?      row.addEventListener('click', async (ev) => {
+      // 单击加载文档并保持选中；支�?Ctrl+左键在新标签中打开并进入源码模�?      row.addEventListener('click', async (ev) => {
         try {
-          // 蹇界暐闈炲乏閿偣鍑伙紝浠ュ強鍙屽嚮搴忓垪涓殑绗簩娆＄偣鍑伙紙浜ょ粰 dblclick 澶勭悊锛?          if (ev.button !== 0 || ev.detail > 1) return
+          // 忽略非左键点击，以及双击序列中的第二次点击（交给 dblclick 处理�?          if (ev.button !== 0 || ev.detail > 1) return
         } catch {}
 
         saveSelection(e.path, false, row)
@@ -745,7 +744,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         const win = (window as any)
         const hasFlyOpen = !!(win && typeof win.flymdOpenFile === 'function')
 
-        // Ctrl+宸﹂敭锛氶€氳繃鍏ㄥ眬 flymdOpenFile锛堝甫鏍囩绯荤粺锛夋墦寮€锛屽苟鍦ㄩ渶瑕佹椂妯℃嫙 Ctrl+E 杩涘叆婧愮爜妯″紡
+        // Ctrl+左键：通过全局 flymdOpenFile（带标签系统）打开，并在需要时模拟 Ctrl+E 进入源码模式
         if (isCtrlLike && hasFlyOpen) {
           ev.preventDefault()
           try { ev.stopPropagation() } catch {}
@@ -756,7 +755,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           try {
             await win.flymdOpenFile(e.path)
           } catch {
-            // 鍥為€€鍒板師鏈夊洖璋冿紝閬垮厤鍔熻兘瀹屽叏澶辨晥
+            // 回退到原有回调，避免功能完全失效
             try { await state.opts?.onOpenFile(e.path) } catch {}
           }
 
@@ -768,7 +767,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             try { return typeof win.flymdGetWysiwygEnabled === 'function' ? !!win.flymdGetWysiwygEnabled() : false } catch { return false }
           }
 
-          // 浠呭湪鈥滅湡姝ｅ垏鎹㈠埌浜嗙洰鏍囨枃妗ｂ€濅笖褰撳墠涓嶅湪绾枃鏈紪杈戞€佹椂锛屾墠妯℃嫙 Ctrl+E 閫昏緫
+          // 仅在“真正切换到了目标文档”且当前不在纯文本编辑态时，才模拟 Ctrl+E 逻辑
           const shouldToggle =
             afterPath && afterPath === e.path && afterPath !== beforePath &&
             (getMode() !== 'edit' || getWysiwyg())
@@ -779,7 +778,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           return
         }
 
-        // 鏅€氬崟鍑伙細鑻ュ鏍囩绯荤粺宸叉寕閽╋紝鍒欓€氳繃 flymdOpenFile 鎵撳紑锛涘惁鍒欐部鐢ㄦ棫琛屼负
+        // 普通单击：若多标签系统已挂钩，则通过 flymdOpenFile 打开；否则沿用旧行为
         if (hasFlyOpen) {
           try {
             await win.flymdOpenFile(e.path)
@@ -790,7 +789,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           try { await state.opts?.onOpenFile(e.path) } catch {}
         }
       })
-      // 鍙屽嚮鍔犺浇锛屽吋瀹规棫涔犳儻锛涘悓鏍蜂紭鍏堣蛋 flymdOpenFile锛堣嫢瀛樺湪锛?      row.addEventListener('dblclick', async (ev) => {
+      // 双击加载，兼容旧习惯；同样优先走 flymdOpenFile（若存在�?      row.addEventListener('dblclick', async (ev) => {
         try {
           if (ev.button !== 0) return
         } catch {}
@@ -831,7 +830,7 @@ async function renderRoot(root: string) {
   kids.style.display = rootExpanded ? '' : 'none'
   if (rootExpanded) await buildDir(root, root, kids)
 
-  // 鍒锋柊鍚庢仮澶嶉€変腑鎬?  try {
+  // 刷新后恢复选中�?  try {
     if (state.selected) {
       const all = Array.from(state.container.querySelectorAll('.lib-node')) as HTMLElement[]
       const hit = all.find((el) => (el as any).dataset?.path === state.selected)
@@ -839,12 +838,12 @@ async function renderRoot(root: string) {
     }
   } catch {}
 
-  // 鏍硅妭鐐圭殑鎷栨斁澶勭悊
+  // 根节点的拖放处理
   topRow.addEventListener('dragover', (ev) => {
     ev.preventDefault()
     if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move'
     topRow.classList.add('selected')
-    console.log('[鎷栧姩] 鎷栧姩鍒版牴鏂囦欢澶?', root)
+    console.log('[拖动] 拖动到根文件�?', root)
   })
   topRow.addEventListener('dragenter', (ev) => { try { ev.preventDefault(); if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move'; topRow.classList.add('selected') } catch {} })
   topRow.addEventListener('dragleave', () => { topRow.classList.remove('selected') })
@@ -875,8 +874,8 @@ async function renderRoot(root: string) {
       }
       try { await state.opts?.onMoved?.(src, finalDst) } catch {}
       await refresh()
-      console.log('[鎷栧姩] 绉诲姩瀹屾垚:', src, '鈫?, finalDst)
-    } catch (err) { console.error('[鎷栧姩] 绉诲姩澶辫触:', err) }
+      console.log('[拖动] 移动完成:', src, '�?, finalDst)
+    } catch (err) { console.error('[拖动] 移动失败:', err) }
   })
 
   topRow.addEventListener('click', async () => {
@@ -889,7 +888,7 @@ async function renderRoot(root: string) {
   })
 }
 
-// 鍐呴儴鍒锋柊鍑芥暟锛屼笉閲嶆柊璁剧疆鐩戝惉
+// 内部刷新函数，不重新设置监听
 async function refreshTree() {
   const root = await state.opts!.getRoot()
   if (!root) {
@@ -898,17 +897,17 @@ async function refreshTree() {
   }
   state.currentRoot = root
   restoreExpandedState(root)
-  // 鍒锋柊鍓嶆竻鐞嗙洰褰曠紦瀛橈紝纭繚鏄剧ず涓庡疄闄呮枃浠剁姸鎬佷竴鑷?  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
+  // 刷新前清理目录缓存，确保显示与实际文件状态一�?  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
   await renderRoot(root)
 }
 
 async function refresh() {
   const root = await state.opts!.getRoot()
-  // 鑻ユ湭閫夋嫨搴撶洰褰曪紝涓嶅啀鍦ㄤ晶鏍忔樉绀烘彁绀猴紝淇濇寔绌虹櫧鍗冲彲锛岄伩鍏嶈瀵肩敤鎴?  if (!root) {
+  // 若未选择库目录，不再在侧栏显示提示，保持空白即可，避免误导用�?  if (!root) {
     state.currentRoot = null
     state.expanded = new Set<string>()
     if (state.container) state.container.innerHTML = ''
-    // 娓呯悊鏃х殑鐩戝惉鍣?    if (state.unwatch) {
+    // 清理旧的监听�?    if (state.unwatch) {
       try { state.unwatch() } catch {}
       state.unwatch = null
       state.watching = false
@@ -916,7 +915,7 @@ async function refresh() {
     return
   }
 
-  // 濡傛灉搴撴牴鐩綍鏀瑰彉浜嗭紝闇€瑕侀噸鏂拌缃洃鍚?  if (state.currentRoot !== root) {
+  // 如果库根目录改变了，需要重新设置监�?  if (state.currentRoot !== root) {
     if (state.unwatch) {
       try { state.unwatch() } catch {}
       state.unwatch = null
@@ -926,22 +925,22 @@ async function refresh() {
 
   state.currentRoot = root
   restoreExpandedState(root)
-  // 鍒锋柊鍓嶆竻鐞嗙洰褰曠紦瀛橈紝纭繚鏄剧ず涓庡疄闄呮枃浠剁姸鎬佷竴鑷?  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
+  // 刷新前清理目录缓存，确保显示与实际文件状态一�?  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
   await renderRoot(root)
 
-  // 璁剧疆鏂囦欢鐩戝惉锛堝鏋滆繕鏈缃垨鏍圭洰褰曟敼鍙樹簡锛?  if (!state.watching) {
+  // 设置文件监听（如果还未设置或根目录改变了�?  if (!state.watching) {
     try {
       const u = await watchImmediate(root, async (event) => {
-        console.log('[鏂囦欢鏍慮 妫€娴嬪埌鏂囦欢鍙樺寲:', event.type, event.paths)
-        // 浣跨敤鍐呴儴鍒锋柊鍑芥暟锛岄伩鍏嶉噸鏂拌缃洃鍚?        await refreshTree()
+        console.log('[文件树] 检测到文件变化:', event.type, event.paths)
+        // 使用内部刷新函数，避免重新设置监�?        await refreshTree()
       }, { recursive: true })
       state.unwatch = () => { try { u(); } catch {} }
       state.watching = true
-      console.log('[鏂囦欢鏍慮 宸插惎鍔ㄦ枃浠剁洃鍚?', root)
+      console.log('[文件树] 已启动文件监�?', root)
     } catch (err) {
-      console.error('[鏂囦欢鏍慮 鍚姩鏂囦欢鐩戝惉澶辫触:', err)
-      console.log('[鏂囦欢鏍慮 娉ㄦ剰: 鏂囦欢绯荤粺鐩戝惉涓嶅彲鐢紝闇€瑕佹墜鍔ㄥ埛鏂版垨浣跨敤鎻掍欢鎻愪緵鐨勫埛鏂板姛鑳?)
-      // 濡傛灉鏂囦欢鐩戝惉澶辫触锛屾爣璁颁负宸插皾璇曪紝閬垮厤閲嶅灏濊瘯
+      console.error('[文件树] 启动文件监听失败:', err)
+      console.log('[文件树] 注意: 文件系统监听不可用，需要手动刷新或使用插件提供的刷新功�?)
+      // 如果文件监听失败，标记为已尝试，避免重复尝试
       state.watching = true
     }
   }
@@ -950,12 +949,12 @@ async function refresh() {
 async function init(container: HTMLElement, opts: FileTreeOptions) {
   state.container = container; state.opts = opts
   loadFolderOrder()
-  // 鍏滃簳锛氬湪鏁翠釜鏂囦欢鏍戝尯鍩熷唴鍏佽 dragover锛岄伩鍏嶅嚭鐜板叏灞€"绂佹"鍏夋爣
+  // 兜底：在整个文件树区域内允许 dragover，避免出现全局"禁止"光标
   try {
     container.addEventListener('dragover', (ev) => { ev.preventDefault() })
   } catch {}
   await refresh()
-  // 鏂囦欢鐩戝惉宸茬粡鍦?refresh() 鍑芥暟涓嚜鍔ㄨ缃?}
+  // 文件监听已经�?refresh() 函数中自动设�?}
 
 async function newFileInSelected() {
   const root = await state.opts!.getRoot()
@@ -1005,7 +1004,7 @@ async function conflictModal(title: string, actions: string[], defaultIndex = 1)
   })
 }
 
-// 24涓彲閫夊浘鏍?export const FOLDER_ICONS = ['馃搧', '馃搨', '馃梻锔?, '馃梼锔?, '馃梽锔?, '馃摎', '馃摉', '馃摃', '馃摋', '馃摌', '馃摍', '馃摀', '馃摂', '馃搵', '馃搼', '馃摝', '馃幆', '猸?, '馃敄', '馃捈', '馃帹', '馃敡', '鈿欙笍', '馃彔']
+// 24个可选图�?export const FOLDER_ICONS = ['📁', '📂', '🗂�?, '🗃�?, '🗄�?, '📚', '📖', '📕', '📗', '📘', '📙', '📓', '📔', '📋', '📑', '📦', '🎯', '�?, '🔖', '💼', '🎨', '🔧', '⚙️', '🏠']
 
 export async function folderIconModal(folderName: string, icons: string[]): Promise<number | null> {
   return await new Promise<number | null>((resolve) => {
@@ -1024,7 +1023,7 @@ export async function folderIconModal(folderName: string, icons: string[]): Prom
       const hd = box.children[0] as HTMLDivElement
       const bd = box.children[1] as HTMLDivElement
       const ft = box.children[2] as HTMLDivElement
-      hd.textContent = `${folderName} - 閫夋嫨鍥炬爣`
+      hd.textContent = `${folderName} - 选择图标`
       bd.innerHTML = ''
       icons.forEach((icon, idx) => {
         const btn = document.createElement('button')
@@ -1043,7 +1042,7 @@ export async function folderIconModal(folderName: string, icons: string[]): Prom
       })
       ft.innerHTML = ''
       const cancelBtn = document.createElement('button')
-      cancelBtn.textContent = '鍙栨秷'
+      cancelBtn.textContent = '取消'
       cancelBtn.style.border='1px solid var(--border)'; cancelBtn.style.borderRadius='8px'; cancelBtn.style.padding='6px 12px'; cancelBtn.style.background='rgba(127,127,127,0.08)'; cancelBtn.style.color='var(--fg)'
       cancelBtn.addEventListener('click', () => { dom!.style.display='none'; resolve(null) })
       ft.appendChild(cancelBtn)
@@ -1060,7 +1059,5 @@ export const fileTree: FileTreeAPI = {
 }
 
 export default fileTree
-
-
 
 
