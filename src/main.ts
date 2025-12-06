@@ -19,8 +19,11 @@ const _startTime = performance.now()
 import './style.css'
 import './mobile.css'  // 移动端样式
 import '@ionic/core/css/ionic.bundle.css'
+import 'ionicons/dist/collection/components/icon/icon.css'
 import { defineCustomElements } from '@ionic/pwa-elements/loader'
-import { chevronBackOutline, chevronForwardOutline, documentTextOutline, folderOutline, listOutline, menuOutline, pin, pinOutline, refreshOutline, swapHorizontalOutline } from 'ionicons/icons'
+import { defineCustomElements as defineIonicons } from 'ionicons/dist/loader'
+import { addIcons } from 'ionicons'
+import { addOutline, chevronBackOutline, chevronForwardOutline, documentOutline, documentTextOutline, eyeOutline, folderOpenOutline, folderOutline, listOutline, menuOutline, pin, pinOutline, refreshOutline, saveOutline, swapHorizontalOutline } from 'ionicons/icons'
 import { initThemeUI, applySavedTheme, updateChromeColorsForMode } from './theme'
 import { t, fmtStatus, getLocalePref, setLocalePref, getLocale } from './i18n'
 // KaTeX 样式改为按需动态加载（首次检测到公式时再加载）
@@ -53,6 +56,24 @@ import goodImgUrl from '../good.png?url'
 import { decorateCodeBlocks } from './decorate'
 import pkg from '../package.json'
 defineCustomElements(window)
+defineIonicons(window)
+addIcons({
+  'add-outline': addOutline,
+  'chevron-back-outline': chevronBackOutline,
+  'chevron-forward-outline': chevronForwardOutline,
+  'document-outline': documentOutline,
+  'document-text-outline': documentTextOutline,
+  'eye-outline': eyeOutline,
+  'folder-open-outline': folderOpenOutline,
+  'folder-outline': folderOutline,
+  'list-outline': listOutline,
+  'menu-outline': menuOutline,
+  'pin': pin,
+  'pin-outline': pinOutline,
+  'refresh-outline': refreshOutline,
+  'save-outline': saveOutline,
+  'swap-horizontal-outline': swapHorizontalOutline,
+})
 // htmlToMarkdown 改为按需动态导入（仅在粘贴 HTML 时使用）
 import { initWebdavSync, openWebdavSyncDialog, getWebdavSyncConfig, isWebdavConfiguredForActiveLibrary, syncNow as webdavSyncNow, setOnSyncComplete, openSyncLog as webdavOpenSyncLog } from './extensions/webdavSync'
 // 平台适配层（Android 支持）
@@ -1482,7 +1503,7 @@ const app = document.getElementById('app')!
 app.innerHTML = `
   <div class="titlebar">
       <button class="mobile-lib-toggle" id="mobile-lib-toggle" aria-label="${t('lib.menu')}" type="button">
-        <img src="${menuOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+        <ion-icon name="menu-outline" aria-hidden="true"></ion-icon>
       </button>
       <div class="menubar">
       <!-- 顶级菜单：文件 / 模式（参考 Windows 文本菜单） -->
@@ -3014,28 +3035,28 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     <div class="lib-header">
       <div class="lib-title-row">
         <button class="lib-choose-btn" id="lib-choose" title="${t('lib.choose')}" aria-label="${t('lib.choose')}" type="button">
-          <img src="${folderOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+          <ion-icon name="folder-outline" aria-hidden="true"></ion-icon>
         </button>
         <div class="lib-name" id="lib-path"></div>
         <button class="lib-toggle-btn" id="lib-toggle" title="${t('lib.menu')}" aria-label="${t('lib.menu')}" type="button">
-          <img src="${chevronBackOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+          <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
         </button>
       </div>
         <div class="lib-actions">
           <button class="lib-action-btn active" id="lib-tab-files" title="${t('tab.files')}" aria-label="${t('tab.files')}" type="button">
-            <img src="${documentTextOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+            <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon>
           </button>
           <button class="lib-action-btn" id="lib-tab-outline" title="${t('tab.outline')}" aria-label="${t('tab.outline')}" type="button">
-            <img src="${listOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+            <ion-icon name="list-outline" aria-hidden="true"></ion-icon>
           </button>
           <button class="lib-action-btn" id="lib-refresh" title="${t('lib.refresh')}" aria-label="${t('lib.refresh')}" type="button">
-            <img src="${refreshOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+            <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
           </button>
           <button class="lib-action-btn" id="lib-side" title="${t('lib.side.left')}" aria-label="${t('lib.side.left')}" type="button">
-            <img src="${swapHorizontalOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+            <ion-icon name="swap-horizontal-outline" aria-hidden="true"></ion-icon>
           </button>
           <button class="lib-action-btn" id="lib-pin" title="${t('lib.pin.auto')}" aria-label="${t('lib.pin.auto')}" type="button">
-            <img src="${pinOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+            <ion-icon name="pin-outline" aria-hidden="true"></ion-icon>
           </button>
         </div>
       </div>
@@ -6188,8 +6209,6 @@ function updateLibrarySideButton() {
     btn.title = t('lib.side.toggle')
     btn.setAttribute('data-side', librarySide)
     btn.classList.toggle('side-right', librarySide === 'right')
-    const icon = btn.querySelector('.ion-icon-img') as HTMLImageElement | null
-    if (icon) icon.src = librarySide === 'right' ? chevronForwardOutline : chevronBackOutline
   } catch {}
 }
 
@@ -6201,8 +6220,8 @@ function updateLibraryPinButton() {
     btn.title = label
     btn.setAttribute('aria-label', label)
     btn.classList.toggle('active', libraryDocked)
-    const icon = btn.querySelector('.ion-icon-img') as HTMLImageElement | null
-    if (icon) icon.src = libraryDocked ? pinOutline : pin
+    const icon = btn.querySelector('ion-icon')
+    if (icon) icon.setAttribute('name', libraryDocked ? 'pin-outline' : 'pin')
   } catch {}
 }
 
@@ -6282,8 +6301,8 @@ function syncLibraryFloatToggle() {
       lib.classList.toggle('side-left', librarySide !== 'right')
       const toggleBtn = document.getElementById('lib-toggle') as HTMLButtonElement | null
       if (toggleBtn) {
-        const icon = toggleBtn.querySelector('.ion-icon-img') as HTMLImageElement | null
-        if (icon) icon.src = librarySide === 'right' ? chevronForwardOutline : chevronBackOutline
+        const icon = toggleBtn.querySelector('ion-icon')
+        if (icon) icon.setAttribute('name', librarySide === 'right' ? 'chevron-forward-outline' : 'chevron-back-outline')
         toggleBtn.title = t('lib.menu')
         toggleBtn.setAttribute('aria-label', t('lib.menu'))
       }

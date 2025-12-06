@@ -101,12 +101,6 @@
     -webkit-app-region: no-drag;
   }
 
-  .mobile-lib-toggle .ion-icon-img {
-    width: 22px;
-    height: 22px;
-    pointer-events: none;
-  }
-
   /* 移动端顶部工具栏精简 */
   .toolbar {
     height: 48px !important;
@@ -163,11 +157,6 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.fab-main .ion-icon-img {
-  width: 26px;
-  height: 26px;
-}
-
 .fab-main:active {
   transform: scale(0.95);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -212,12 +201,6 @@
   justify-content: center;
   transition: transform 0.2s, background 0.2s;
   position: relative;
-}
-
-.fab-item .ion-icon-img {
-  width: 22px;
-  height: 22px;
-  pointer-events: none;
 }
 
 .fab-item:active {

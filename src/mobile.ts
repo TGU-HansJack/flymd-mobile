@@ -6,7 +6,6 @@
 */
 
 import { isMobile } from './platform'
-import { addOutline, documentOutline, eyeOutline, folderOpenOutline, folderOutline, saveOutline } from 'ionicons/icons'
 
 // 初始化移动端 UI
 export function initMobileUI(): void {
@@ -31,23 +30,23 @@ function createFAB(): void {
   container.className = 'fab-container'
   container.innerHTML = `
     <button class="fab-main" id="fabMain" aria-label="操作菜单">
-      <img src="${addOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+      <ion-icon name="add-outline" aria-hidden="true"></ion-icon>
     </button>
     <div class="fab-menu" id="fabMenu">
       <button class="fab-item" data-action="library" data-label="文件库" aria-label="打开文件库">
-        <img src="${folderOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+        <ion-icon name="folder-outline" aria-hidden="true"></ion-icon>
       </button>
       <button class="fab-item" data-action="preview" data-label="预览" aria-label="切换预览">
-        <img src="${eyeOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+        <ion-icon name="eye-outline" aria-hidden="true"></ion-icon>
       </button>
       <button class="fab-item" data-action="save" data-label="保存" aria-label="保存文件">
-        <img src="${saveOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+        <ion-icon name="save-outline" aria-hidden="true"></ion-icon>
       </button>
       <button class="fab-item" data-action="open" data-label="打开" aria-label="打开文件">
-        <img src="${folderOpenOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+        <ion-icon name="folder-open-outline" aria-hidden="true"></ion-icon>
       </button>
       <button class="fab-item" data-action="new" data-label="新建" aria-label="新建文件">
-        <img src="${documentOutline}" class="ion-icon-img" alt="" aria-hidden="true" />
+        <ion-icon name="document-outline" aria-hidden="true"></ion-icon>
       </button>
     </div>
   `
