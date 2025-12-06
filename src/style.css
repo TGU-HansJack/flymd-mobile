@@ -1216,6 +1216,7 @@ body > .block-menu { display: none !important; }
 }
 .library .lib-header { position: sticky; top: 0; background: var(--chrome-panel-bg, var(--panel-bg)); border-bottom: none; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; z-index: 1; }
 .library .lib-title-row { display: flex; align-items: center; gap: 10px; padding-bottom: 2px; }
+.ion-icon-img { display: block; }
 .library .lib-choose-btn { -webkit-app-region: no-drag; cursor: pointer; border: none; background: transparent; color: var(--muted); padding: 6px; font-size: 18px; flex-shrink: 0; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; }
 .library .lib-choose-btn:hover { color: var(--fg); }
 .library .lib-name { flex: 1; color: var(--fg); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 600; padding-left: 4px; opacity: 0.9; }
@@ -1231,10 +1232,10 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .library .lib-action-btn { -webkit-app-region: no-drag; cursor: pointer; border: none; background: transparent; color: var(--muted); padding: 6px; font-size: 16px; flex: 1; text-align: center; white-space: nowrap; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; }
 .library .lib-action-btn:hover { color: var(--fg); }
 .library .lib-action-btn.active { color: var(--fg); font-weight: 600; }
-.library .lib-choose-btn ion-icon,
-.library .lib-action-btn ion-icon,
-.library .lib-toggle-btn ion-icon { font-size: 18px; pointer-events: none; }
-.library #lib-side[data-side="right"] ion-icon { transform: scaleX(-1); }
+.library .lib-choose-btn .ion-icon-img,
+.library .lib-action-btn .ion-icon-img,
+.library .lib-toggle-btn .ion-icon-img { width: 18px; height: 18px; pointer-events: none; }
+.library #lib-side[data-side="right"] .ion-icon-img { transform: scaleX(-1); }
 .library .hidden { display: none !important; }
 .library { -webkit-app-region: no-drag; }
 .library .lib-tree { padding: 8px 6px 14px 6px; font-size: 13px; -webkit-app-region: no-drag; }
