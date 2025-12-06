@@ -3,14 +3,12 @@ import { t } from './i18n'
 import appIconUrl from '../Flymdnew.png?url'
 
 export type FileTreeOptions = {
-  // 获取库根目录（未设置时返回 null）
-  getRoot: () => Promise<string | null>
+  // 获取库根目录（未设置时返�?null�?  getRoot: () => Promise<string | null>
   // 打开已有文件（双击文件触发）
   onOpenFile: (path: string) => Promise<void> | void
   // 新建文件后打开（用于默认进入编辑态）
   onOpenNewFile?: (path: string) => Promise<void> | void
-  // 状态变更回调（选中/展开变化时可通知外层）
-  onStateChange?: () => void
+  // 状态变更回调（选中/展开变化时可通知外层�?  onStateChange?: () => void
   // 文件被移动后的通知（用于外层更新当前打开文件路径等）
   onMoved?: (src: string, dst: string) => Promise<void> | void
 }
@@ -79,8 +77,7 @@ function setExpandedState(path: string, expanded: boolean) {
 const hasDocCache = new Map<string, boolean>()
 const hasDocPending = new Map<string, Promise<boolean>>()
 
-// 文件夹自定义排序映射：父目录 -> 子目录路径 -> 顺序索引（仅作用于文件夹）
-const folderOrder: Record<string, Record<string, number>> = {}
+// 文件夹自定义排序映射：父目录 -> 子目录路�?-> 顺序索引（仅作用于文件夹�?const folderOrder: Record<string, Record<string, number>> = {}
 const FOLDER_ORDER_KEY = 'flymd:folderOrder'
 
 function loadFolderOrder() {
@@ -107,8 +104,7 @@ function saveFolderOrder() {
   } catch {}
 }
 
-// 获取某父目录下单个子目录的手动顺序索引（未设置时返回 Infinity）
-function getFolderOrder(parent: string, child: string): number {
+// 获取某父目录下单个子目录的手动顺序索引（未设置时返回 Infinity�?function getFolderOrder(parent: string, child: string): number {
   const m = folderOrder[parent]
   if (!m) return Number.POSITIVE_INFINITY
   const n = m[child]
@@ -140,6 +136,19 @@ function join(a: string, b: string): string { const s = sep(a); return (a.endsWi
 function base(p: string): string { return p.split(/[\\/]+/).slice(0, -1).join(sep(p)) }
 function nameOf(p: string): string { const n = p.split(/[\\/]+/).pop() || p; return n }
 function isInside(root: string, p: string): boolean { const r = norm(root).toLowerCase(); const q = norm(p).toLowerCase(); const s = r.endsWith(sep(r)) ? r : r + sep(r); return q.startsWith(s) }
+function friendlyDisplayName(raw: string): string {
+  try {
+    let name = raw || ''
+    try { name = decodeURIComponent(name) } catch {}
+    // SAF tree/document/primary:xxx 形式
+    if (name.includes(':')) name = name.split(':').pop() || name
+    name = name.replace(/^tree\//i, '').replace(/^document\//i, '')
+    name = name.split(/[/\\]+/).filter(Boolean).pop() || name
+    return name || raw
+  } catch {
+    return raw
+  }
+}
 function displayNameForRoot(p: string): string {
   try {
     let tail = p.split(/[\\/]+/).filter(Boolean).pop() || p
@@ -177,14 +186,13 @@ async function newFileSafe(dir: string, hint = '新建文档.md'): Promise<strin
   return full
 }
 
-async function newFolderSafe(dir: string, hint = '新建文件夹'): Promise<string> {
+async function newFolderSafe(dir: string, hint = '新建文件�?): Promise<string> {
   const s = sep(dir)
   let n = hint, i = 1
   while (await exists(dir + s + n)) { n = `${hint} ${++i}` }
   const full = dir + s + n
   await mkdir(full, { recursive: true } as any)
-  // 创建一个占位文件，使文件夹在库侧栏中可见
-  const placeholder = full + s + 'README.md'
+  // 创建一个占位文件，使文件夹在库侧栏中可�?  const placeholder = full + s + 'README.md'
   await writeTextFile(placeholder, '# ' + n + '\n\n', {} as any)
   return full
 }
@@ -232,8 +240,7 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
   let ents: any[] = []
   try { ents = await readDir(dir, { recursive: false } as any) as any[] } catch { ents = [] }
   const dirs: { name: string; path: string; isDir: boolean; mtime?: number }[] = []
-  // 仅展示指定后缀的文档（md / markdown / txt / pdf）
-  const allow = new Set(['md', 'markdown', 'txt', 'pdf'])
+  // 仅展示指定后缀的文档（md / markdown / txt / pdf�?  const allow = new Set(['md', 'markdown', 'txt', 'pdf'])
   for (const it of ents) {
     const needMtime = (state.sortMode === 'mtime_asc' || state.sortMode === 'mtime_desc')
     const p: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
@@ -273,7 +280,7 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
   const byMtimeAsc = (a: any, b: any) => ((a.mtime ?? 0) - (b.mtime ?? 0)) || a.name.localeCompare(b.name)
   const byMtimeDesc = (a: any, b: any) => ((b.mtime ?? 0) - (a.mtime ?? 0)) || a.name.localeCompare(b.name)
 
-  // 目录排序：手动顺序 + 原有规则
+  // 目录排序：手动顺�?+ 原有规则
   const dirManualFirst = (cmp: (a: any, b: any) => number) => (a: any, b: any) => {
     const oa = getFolderOrder(dir, a.path)
     const ob = getFolderOrder(dir, b.path)
@@ -303,8 +310,7 @@ async function dirHasSupportedDocRecursive(dir: string, allow: Set<string>, dept
       if (depth <= 0) { hasDocCache.set(dir, false); return false }
       let entries: any[] = []
       try { entries = await readDir(dir, { recursive: false } as any) as any[] } catch { entries = [] }
-      // 先扫描本层文件
-      for (const it of (entries || [])) {
+      // 先扫描本层文�?      for (const it of (entries || [])) {
         const full: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
         let isDir = false
          if ((it as any)?.isDirectory !== undefined) { isDir = !!(it as any)?.isDirectory } else { try { isDir = !!(await stat(full) as any)?.isDirectory } catch { isDir = false } }
@@ -314,8 +320,7 @@ async function dirHasSupportedDocRecursive(dir: string, allow: Set<string>, dept
           if (allow.has(ext)) { hasDocCache.set(dir, true); return true }
         }
       }
-      // 再递归子目录
-      for (const it of (entries || [])) {
+      // 再递归子目�?      for (const it of (entries || [])) {
         const full: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
         let isDir = false
          if ((it as any)?.isDirectory !== undefined) { isDir = !!(it as any)?.isDirectory } else { try { isDir = !!(await stat(full) as any)?.isDirectory } catch { isDir = false } }
@@ -339,7 +344,7 @@ function makeFolderIcon(path?: string): HTMLElement {
   const span=document.createElement('span')
   span.className='lib-ico lib-ico-folder'
   // 优先使用单个文件夹的自定义图标，其次使用全局默认
-  let icon = '🗂️'
+  let icon = '🗂�?
   try {
     if (path) {
       const customIcons = JSON.parse(localStorage.getItem('flymd:folderIcons') || '{}')
@@ -379,8 +384,9 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
     ;(row as any).dataset.path = e.path
     const label = document.createElement('span')
     label.className = 'lib-name'
-    // 文件隐藏后缀名，文件夹保持原名
-    label.textContent = e.isDir ? e.name : stripExt(e.name)
+    // �ļ�������չ�����ļ��б���ԭ�����Ѻû� SAF ����)
+    const dispName = friendlyDisplayName(e.name)
+    label.textContent = e.isDir ? dispName : stripExt(dispName)
 
     if (e.isDir) {
       const tg = makeTg()
@@ -423,10 +429,10 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             ghost = document.createElement('div')
             ghost.className = 'ft-ghost'
             const gico = document.createElement('span')
-            gico.textContent = '🗂️'
+            gico.textContent = '🗂�?
             gico.style.marginRight = '6px'
             const glab = document.createElement('span')
-            glab.textContent = e.name
+            glab.textContent = friendlyDisplayName(e.name)
             glab.style.fontSize = '12px'
             ghost.appendChild(gico)
             ghost.appendChild(glab)
@@ -492,8 +498,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           if (ev.button !== 0) return
           // Ctrl/Shift 等组合键保留给选择，避免误启动排序拖拽
           if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return
-          // 在目录节点上按住左键，启动排序拖拽准备
-          down = true
+          // 在目录节点上按住左键，启动排序拖拽准�?          down = true
           moved = false
           sx = ev.clientX
           sy = ev.clientY
@@ -539,19 +544,16 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           }
           try { await state.opts?.onMoved?.(src, finalDst) } catch {}
           await refresh()
-          console.log('[拖动] 移动完成:', src, '→', finalDst)
+          console.log('[拖动] 移动完成:', src, '�?, finalDst)
         } catch (err) { console.error('[拖动] 移动失败:', err) }
       })
     } else {
-      // 为文件显示类型化图标：
-      // - markdown/txt 使用简洁的“文档形状”图标，并显示 MD/TXT 标识
-      // - pdf 使用程序图标的红色变体（通过 CSS 滤镜实现区分）
-      // - 其他类型使用程序图标
+      // 为文件显示类型化图标�?      // - markdown/txt 使用简洁的“文档形状”图标，并显�?MD/TXT 标识
+      // - pdf 使用程序图标的红色变体（通过 CSS 滤镜实现区分�?      // - 其他类型使用程序图标
       const ext = (() => { try { return (e.name.split('.').pop() || '').toLowerCase() } catch { return '' } })()
       let iconEl: HTMLElement
       if (ext === 'md' || ext === 'markdown') {
-        // 按照用户要求：MD 图标保持原样（程序图标），不要改动
-        const img = document.createElement('img')
+        // 按照用户要求：MD 图标保持原样（程序图标），不要改�?        const img = document.createElement('img')
         img.className = 'lib-ico lib-ico-app'
         try { img.setAttribute('src', appIconUrl) } catch {}
         iconEl = img
@@ -570,10 +572,9 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         try { img.setAttribute('src', appIconUrl) } catch {}
         iconEl = img
       }
-      // 让图标与文字都成为可拖拽起点（某些内核仅触发“被按住元素”的拖拽，不会透传到父元素）
-      try { iconEl.setAttribute('draggable', 'true') } catch {}
+      // 让图标与文字都成为可拖拽起点（某些内核仅触发“被按住元素”的拖拽，不会透传到父元素�?      try { iconEl.setAttribute('draggable', 'true') } catch {}
       try { label.setAttribute('draggable', 'true') } catch {}
-      // 统一的拖拽启动处理（Edge/WebView2 兼容：设置 dataTransfer 与拖拽影像）
+      // 统一的拖拽启动处理（Edge/WebView2 兼容：设�?dataTransfer 与拖拽影像）
       let nativeDragStarted = false
       const startDrag = (ev: DragEvent) => {
         try {
@@ -581,8 +582,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           const dt = ev.dataTransfer
           if (!dt) return
           nativeDragStarted = true
-          // 必须至少写入一种类型的数据，否则某些内核会判定为“无效拖拽”
-          dt.setData('text/plain', e.path)
+          // 必须至少写入一种类型的数据，否则某些内核会判定为“无效拖拽�?          dt.setData('text/plain', e.path)
           // 兼容某些解析器：附带 URI 列表
           try {
             const fileUrl = (() => {
@@ -593,18 +593,15 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             })()
             if (fileUrl) dt.setData('text/uri-list', fileUrl)
           } catch {}
-          // 允许移动/复制（由目标决定 dropEffect）
-          dt.effectAllowed = 'copyMove'
-          // 提供拖拽影像，避免出现无预览时的“禁止”提示
-          try { dt.setDragImage(row, 4, 4) } catch {}
+          // 允许移动/复制（由目标决定 dropEffect�?          dt.effectAllowed = 'copyMove'
+          // 提供拖拽影像，避免出现无预览时的“禁止”提�?          try { dt.setDragImage(row, 4, 4) } catch {}
         } catch {}
       }
       row.addEventListener('dragstart', startDrag)
       iconEl.addEventListener('dragstart', startDrag as any)
       label.addEventListener('dragstart', startDrag as any)
       // 自绘拖拽兜底：在某些 WebView2 场景下，原生 DnD 会一直显示禁止图标，
-      // 我们在移动阈值触发后启用自绘拖拽，模拟“拖到文件夹释放即可移动”。
-      const setupFallbackDrag = (host: HTMLElement) => {
+      // 我们在移动阈值触发后启用自绘拖拽，模拟“拖到文件夹释放即可移动”�?      const setupFallbackDrag = (host: HTMLElement) => {
         let down = false, sx = 0, sy = 0, moved = false
         let ghost: HTMLDivElement | null = null
         let hoverEl: HTMLElement | null = null
@@ -636,7 +633,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             gico.style.marginRight = '6px'
             // 文本
             const glab = document.createElement('span')
-            glab.textContent = e.name
+            glab.textContent = friendlyDisplayName(e.name)
             glab.style.fontSize = '12px'
             // 组合
             ghost.appendChild(gico)
@@ -659,8 +656,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           if (moved && ghost) {
             ghost.style.left = ev.clientX + 8 + 'px'
             ghost.style.top = ev.clientY + 8 + 'px'
-            // 命中测试：查找鼠标下的目录节点
-            let el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null
+            // 命中测试：查找鼠标下的目录节�?            let el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null
             let tgt = el?.closest?.('.lib-node.lib-dir') as HTMLElement | null
             if (hoverEl && hoverEl !== tgt) hoverEl.classList.remove('selected')
             if (tgt) tgt.classList.add('selected')
@@ -715,10 +711,9 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         }
         const onDown = (ev: MouseEvent) => {
           if (ev.button !== 0) return
-          // 允许文本选择/点击，不阻止默认；兜底触发依靠移动阈值
-          down = true; sx = ev.clientX; sy = ev.clientY; moved = false; nativeDragStarted = false
+          // 允许文本选择/点击，不阻止默认；兜底触发依靠移动阈�?          down = true; sx = ev.clientX; sy = ev.clientY; moved = false; nativeDragStarted = false
           try { ev.stopPropagation() } catch {}
-          // 暂时禁用原生 DnD，避免阻断 mousemove
+          // 暂时禁用原生 DnD，避免阻�?mousemove
           try {
             prevRowDraggable = row.getAttribute('draggable')
             prevIconDraggable = (iconEl as any).getAttribute?.('draggable') ?? null
@@ -734,16 +729,13 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
         }
         host.addEventListener('mousedown', onDown, true)
       }
-      // 将兜底拖拽仅绑定到整行，避免多次绑定造成多个“幽灵”遗留
-      setupFallbackDrag(row)
+      // 将兜底拖拽仅绑定到整行，避免多次绑定造成多个“幽灵”遗�?      setupFallbackDrag(row)
       row.appendChild(iconEl); row.appendChild(label)
       try { if (ext) row.classList.add('file-ext-' + ext) } catch {}
 
-      // 单击加载文档并保持选中；支持 Ctrl+左键在新标签中打开并进入源码模式
-      row.addEventListener('click', async (ev) => {
+      // 单击加载文档并保持选中；支�?Ctrl+左键在新标签中打开并进入源码模�?      row.addEventListener('click', async (ev) => {
         try {
-          // 忽略非左键点击，以及双击序列中的第二次点击（交给 dblclick 处理）
-          if (ev.button !== 0 || ev.detail > 1) return
+          // 忽略非左键点击，以及双击序列中的第二次点击（交给 dblclick 处理�?          if (ev.button !== 0 || ev.detail > 1) return
         } catch {}
 
         saveSelection(e.path, false, row)
@@ -797,8 +789,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           try { await state.opts?.onOpenFile(e.path) } catch {}
         }
       })
-      // 双击加载，兼容旧习惯；同样优先走 flymdOpenFile（若存在）
-      row.addEventListener('dblclick', async (ev) => {
+      // 双击加载，兼容旧习惯；同样优先走 flymdOpenFile（若存在�?      row.addEventListener('dblclick', async (ev) => {
         try {
           if (ev.button !== 0) return
         } catch {}
@@ -839,8 +830,7 @@ async function renderRoot(root: string) {
   kids.style.display = rootExpanded ? '' : 'none'
   if (rootExpanded) await buildDir(root, root, kids)
 
-  // 刷新后恢复选中态
-  try {
+  // 刷新后恢复选中�?  try {
     if (state.selected) {
       const all = Array.from(state.container.querySelectorAll('.lib-node')) as HTMLElement[]
       const hit = all.find((el) => (el as any).dataset?.path === state.selected)
@@ -853,7 +843,7 @@ async function renderRoot(root: string) {
     ev.preventDefault()
     if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move'
     topRow.classList.add('selected')
-    console.log('[拖动] 拖动到根文件夹:', root)
+    console.log('[拖动] 拖动到根文件�?', root)
   })
   topRow.addEventListener('dragenter', (ev) => { try { ev.preventDefault(); if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move'; topRow.classList.add('selected') } catch {} })
   topRow.addEventListener('dragleave', () => { topRow.classList.remove('selected') })
@@ -884,7 +874,7 @@ async function renderRoot(root: string) {
       }
       try { await state.opts?.onMoved?.(src, finalDst) } catch {}
       await refresh()
-      console.log('[拖动] 移动完成:', src, '→', finalDst)
+      console.log('[拖动] 移动完成:', src, '�?, finalDst)
     } catch (err) { console.error('[拖动] 移动失败:', err) }
   })
 
@@ -907,20 +897,17 @@ async function refreshTree() {
   }
   state.currentRoot = root
   restoreExpandedState(root)
-  // 刷新前清理目录缓存，确保显示与实际文件状态一致
-  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
+  // 刷新前清理目录缓存，确保显示与实际文件状态一�?  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
   await renderRoot(root)
 }
 
 async function refresh() {
   const root = await state.opts!.getRoot()
-  // 若未选择库目录，不再在侧栏显示提示，保持空白即可，避免误导用户
-  if (!root) {
+  // 若未选择库目录，不再在侧栏显示提示，保持空白即可，避免误导用�?  if (!root) {
     state.currentRoot = null
     state.expanded = new Set<string>()
     if (state.container) state.container.innerHTML = ''
-    // 清理旧的监听器
-    if (state.unwatch) {
+    // 清理旧的监听�?    if (state.unwatch) {
       try { state.unwatch() } catch {}
       state.unwatch = null
       state.watching = false
@@ -928,8 +915,7 @@ async function refresh() {
     return
   }
 
-  // 如果库根目录改变了，需要重新设置监听
-  if (state.currentRoot !== root) {
+  // 如果库根目录改变了，需要重新设置监�?  if (state.currentRoot !== root) {
     if (state.unwatch) {
       try { state.unwatch() } catch {}
       state.unwatch = null
@@ -939,24 +925,21 @@ async function refresh() {
 
   state.currentRoot = root
   restoreExpandedState(root)
-  // 刷新前清理目录缓存，确保显示与实际文件状态一致
-  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
+  // 刷新前清理目录缓存，确保显示与实际文件状态一�?  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
   await renderRoot(root)
 
-  // 设置文件监听（如果还未设置或根目录改变了）
-  if (!state.watching) {
+  // 设置文件监听（如果还未设置或根目录改变了�?  if (!state.watching) {
     try {
       const u = await watchImmediate(root, async (event) => {
         console.log('[文件树] 检测到文件变化:', event.type, event.paths)
-        // 使用内部刷新函数，避免重新设置监听
-        await refreshTree()
+        // 使用内部刷新函数，避免重新设置监�?        await refreshTree()
       }, { recursive: true })
       state.unwatch = () => { try { u(); } catch {} }
       state.watching = true
-      console.log('[文件树] 已启动文件监听:', root)
+      console.log('[文件树] 已启动文件监�?', root)
     } catch (err) {
       console.error('[文件树] 启动文件监听失败:', err)
-      console.log('[文件树] 注意: 文件系统监听不可用，需要手动刷新或使用插件提供的刷新功能')
+      console.log('[文件树] 注意: 文件系统监听不可用，需要手动刷新或使用插件提供的刷新功�?)
       // 如果文件监听失败，标记为已尝试，避免重复尝试
       state.watching = true
     }
@@ -971,8 +954,7 @@ async function init(container: HTMLElement, opts: FileTreeOptions) {
     container.addEventListener('dragover', (ev) => { ev.preventDefault() })
   } catch {}
   await refresh()
-  // 文件监听已经在 refresh() 函数中自动设置
-}
+  // 文件监听已经�?refresh() 函数中自动设�?}
 
 async function newFileInSelected() {
   const root = await state.opts!.getRoot()
@@ -1022,8 +1004,7 @@ async function conflictModal(title: string, actions: string[], defaultIndex = 1)
   })
 }
 
-// 24个可选图标
-export const FOLDER_ICONS = ['📁', '📂', '🗂️', '🗃️', '🗄️', '📚', '📖', '📕', '📗', '📘', '📙', '📓', '📔', '📋', '📑', '📦', '🎯', '⭐', '🔖', '💼', '🎨', '🔧', '⚙️', '🏠']
+// 24个可选图�?export const FOLDER_ICONS = ['📁', '📂', '🗂�?, '🗃�?, '🗄�?, '📚', '📖', '📕', '📗', '📘', '📙', '📓', '📔', '📋', '📑', '📦', '🎯', '�?, '🔖', '💼', '🎨', '🔧', '⚙️', '🏠']
 
 export async function folderIconModal(folderName: string, icons: string[]): Promise<number | null> {
   return await new Promise<number | null>((resolve) => {
@@ -1078,3 +1059,5 @@ export const fileTree: FileTreeAPI = {
 }
 
 export default fileTree
+
+
