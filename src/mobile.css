@@ -1,6 +1,6 @@
 /* 移动端 UI 适配样式 */
 
-/* 移动端专用库按钮（默认隐藏，仅移动端显示）*/
+/* 移动端专用库按钮（默认隐藏，仅移动端显示） */
 .mobile-lib-toggle {
   display: none;
 }
@@ -31,30 +31,20 @@
     padding-right: 0 !important;
   }
 
-  /* 编辑器全屏，增加左右留白，便于阅读编辑 */
+  /* 编辑器全屏 */
   #editor {
-    width: calc(100vw - 1em) !important;
-    max-width: calc(100vw - 1em);
+    width: 100vw !important;
     height: calc(100vh - 48px) !important;
     font-size: 16px !important; /* iOS 防止自动缩放 */
-    box-sizing: border-box;
-    margin: 0 auto;
-    padding-left: 0.5em;
-    padding-right: 0.5em;
   }
 
-  /* 预览区全屏，同样增加左右留白 */
+  /* 预览区全屏 */
   #preview {
-    width: calc(100vw - 1em) !important;
-    max-width: calc(100vw - 1em);
+    width: 100vw !important;
     height: calc(100vh - 48px) !important;
-    box-sizing: border-box;
-    margin: 0 auto;
-    padding-left: 0.5em;
-    padding-right: 0.5em;
   }
 
-  /* 顶部工具栏按钮加大（触摸友好）*/
+  /* 顶部工具栏按钮加大（触摸友好） */
   .toolbar button,
   .toolbar select {
     min-width: 44px !important;
@@ -67,7 +57,7 @@
     display: none !important;
   }
 
-  /* 旧文件库按钮（若存在）*/
+  /* 旧文件库按钮（若存在） */
   #toggleFileTree {
     display: block !important;
   }
@@ -110,7 +100,7 @@
     white-space: nowrap;
   }
 
-  /* 工具栏按钮图标模式（隐藏文字）*/
+  /* 工具栏按钮图标模式（隐藏文字） */
   .toolbar button span.text {
     display: none;
   }
@@ -279,7 +269,7 @@
   opacity: 1;
 }
 
-/* ========== 深色模式适配 ========== */
+/* ========== 暗色模式适配 ========== */
 @media (prefers-color-scheme: dark) {
   .fab-main {
     background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
