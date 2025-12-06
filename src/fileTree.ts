@@ -174,7 +174,7 @@ async function moveFileSafe(src: string, dst: string): Promise<void> {
   }
 }
 
-async function newFileSafe(dir: string, hint = '新建文档.md'): Promise<string> {
+async function newFileSafe(dir: string, hint = '鏂板缓鏂囨。.md'): Promise<string> {
   const s = sep(dir)
   let n = hint, i = 1
   while (await exists(dir + s + n)) {
@@ -183,18 +183,17 @@ async function newFileSafe(dir: string, hint = '新建文档.md'): Promise<strin
   }
   const full = dir + s + n
   await ensureDir(dir)
-  await writeTextFile(full, '# 标题\\n\\n', {} as any)
+  await writeTextFile(full, '# 鏍囬\n\n', {} as any)
   return full
 }
 
-async function newFolderSafe(dir: string, hint = '新建文件夹'): Promise<string> {
+async function newFolderSafe(dir: string, hint = '鏂板缓鏂囦欢澶?): Promise<string> {
   const s = sep(dir)
   let n = hint, i = 1
   while (await exists(dir + s + n)) { n = `${hint} ${++i}` }
   const full = dir + s + n
   await mkdir(full, { recursive: true } as any)
-  // 创建一个占位文件，使文件夹在库侧栏中可见
-  const placeholder = full + s + 'README.md'
+  // 鍒涘缓涓€涓崰浣嶆枃浠讹紝浣挎枃浠跺す鍦ㄥ簱渚ф爮涓彲瑙?  const placeholder = full + s + 'README.md'
   await writeTextFile(placeholder, '# ' + n + '\n\n', {} as any)
   return full
 }
@@ -303,7 +302,6 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
 }
 
 // 閫掑綊鍒ゆ柇鐩綍鏄惁鍖呭惈鍙楁敮鎸佹枃妗ｏ紙甯︾紦瀛橈級
-
 async function dirHasSupportedDocRecursive(dir: string, allow: Set<string>, depth = 20): Promise<boolean> {
   try {
     if (hasDocCache.has(dir)) return hasDocCache.get(dir) as boolean
@@ -313,49 +311,41 @@ async function dirHasSupportedDocRecursive(dir: string, allow: Set<string>, dept
       if (depth <= 0) { hasDocCache.set(dir, false); return false }
       let entries: any[] = []
       try { entries = await readDir(dir, { recursive: false } as any) as any[] } catch { entries = [] }
-
-      // ?????????
-      for (const it of (entries || [])) {
+      // 鍏堟壂鎻忔湰灞傛枃浠?      for (const it of (entries || [])) {
         const full: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
         let isDir = false
-        if ((it as any)?.isDirectory !== undefined) { isDir = !!(it as any)?.isDirectory } else { try { isDir = !!(await stat(full) as any)?.isDirectory } catch { isDir = false } }
+         if ((it as any)?.isDirectory !== undefined) { isDir = !!(it as any)?.isDirectory } else { try { isDir = !!(await stat(full) as any)?.isDirectory } catch { isDir = false } }
         if (!isDir) {
           const nm = nameOf(full)
           const ext = (nm.split('.').pop() || '').toLowerCase()
           if (allow.has(ext)) { hasDocCache.set(dir, true); return true }
         }
       }
-
-      // ????????
-      for (const it of (entries || [])) {
+      // 鍐嶉€掑綊瀛愮洰褰?      for (const it of (entries || [])) {
         const full: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
         let isDir = false
-        if ((it as any)?.isDirectory !== undefined) { isDir = !!(it as any)?.isDirectory } else { try { isDir = !!(await stat(full) as any)?.isDirectory } catch { isDir = false } }
+         if ((it as any)?.isDirectory !== undefined) { isDir = !!(it as any)?.isDirectory } else { try { isDir = !!(await stat(full) as any)?.isDirectory } catch { isDir = false } }
         if (isDir) {
           const ok = await dirHasSupportedDocRecursive(full, allow, depth - 1)
           if (ok) { hasDocCache.set(dir, true); return true }
         }
       }
-
       hasDocCache.set(dir, false)
       return false
     })()
-
     hasDocPending.set(dir, p)
     const r = await p
     hasDocPending.delete(dir)
     return r
-  } catch {
-    return false
-  }
+  } catch { return false }
 }
 
 function makeTg(): HTMLElement { const s = document.createElementNS('http://www.w3.org/2000/svg','svg'); s.setAttribute('viewBox','0 0 24 24'); s.classList.add('lib-tg'); const p=document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d','M9 6l6 6-6 6'); s.appendChild(p); return s as any }
 function makeFolderIcon(path?: string): HTMLElement {
-  const span = document.createElement('span')
-  span.className = 'lib-ico lib-ico-folder'
-  // ????????????????????????
-  let icon = '\u{1F4C1}'
+  const span=document.createElement('span')
+  span.className='lib-ico lib-ico-folder'
+  // 浼樺厛浣跨敤鍗曚釜鏂囦欢澶圭殑鑷畾涔夊浘鏍囷紝鍏舵浣跨敤鍏ㄥ眬榛樿
+  let icon = '馃梻锔?
   try {
     if (path) {
       const customIcons = JSON.parse(localStorage.getItem('flymd:folderIcons') || '{}')
@@ -374,6 +364,7 @@ function makeFolderIcon(path?: string): HTMLElement {
   return span as any
 }
 
+// 绉婚櫎鏂囦欢鍚庣紑鍚嶏紙鐢ㄤ簬绠€娲佹樉绀猴級
 function stripExt(name: string): string {
   const idx = name.lastIndexOf('.')
   return idx > 0 ? name.slice(0, idx) : name
@@ -439,7 +430,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
             ghost = document.createElement('div')
             ghost.className = 'ft-ghost'
             const gico = document.createElement('span')
-            gico.textContent = '\u{1F4C1}'
+            gico.textContent = '馃梻锔?
             gico.style.marginRight = '6px'
             const glab = document.createElement('span')
             glab.textContent = friendlyDisplayName(e.name)
@@ -554,7 +545,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           }
           try { await state.opts?.onMoved?.(src, finalDst) } catch {}
           await refresh()
-          console.log('[drag] move done:', src, '->', finalDst)
+          console.log('[鎷栧姩] 绉诲姩瀹屾垚:', src, '鈫?, finalDst)
         } catch (err) { console.error('[鎷栧姩] 绉诲姩澶辫触:', err) }
       })
     } else {
@@ -743,7 +734,7 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
       row.appendChild(iconEl); row.appendChild(label)
       try { if (ext) row.classList.add('file-ext-' + ext) } catch {}
 
-      row.addEventListener('click', async (ev) => {
+      // 鍗曞嚮鍔犺浇鏂囨。骞朵繚鎸侀€変腑锛涙敮鎸?Ctrl+宸﹂敭鍦ㄦ柊鏍囩涓墦寮€骞惰繘鍏ユ簮鐮佹ā寮?      row.addEventListener('click', async (ev) => {
         try {
           // 蹇界暐闈炲乏閿偣鍑伙紝浠ュ強鍙屽嚮搴忓垪涓殑绗簩娆＄偣鍑伙紙浜ょ粰 dblclick 澶勭悊锛?          if (ev.button !== 0 || ev.detail > 1) return
         } catch {}
@@ -799,10 +790,9 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
           try { await state.opts?.onOpenFile(e.path) } catch {}
         }
       })
-      // 双击打开：优先尝试 flymdOpenFile，其次调用 onOpenFile
-      row.addEventListener('dblclick', async (ev) => {
+      // 鍙屽嚮鍔犺浇锛屽吋瀹规棫涔犳儻锛涘悓鏍蜂紭鍏堣蛋 flymdOpenFile锛堣嫢瀛樺湪锛?      row.addEventListener('dblclick', async (ev) => {
         try {
-          if ((ev as MouseEvent).button !== 0) return
+          if (ev.button !== 0) return
         } catch {}
         const win = (window as any)
         const hasFlyOpen = !!(win && typeof win.flymdOpenFile === 'function')
@@ -822,6 +812,8 @@ async function buildDir(root: string, dir: string, parent: HTMLElement) {
       parent.appendChild(row)
     }
   }
+}
+
 async function renderRoot(root: string) {
   if (!state.container) return
   state.container.innerHTML = ''
@@ -839,7 +831,7 @@ async function renderRoot(root: string) {
   kids.style.display = rootExpanded ? '' : 'none'
   if (rootExpanded) await buildDir(root, root, kids)
 
-  try {
+  // 鍒锋柊鍚庢仮澶嶉€変腑鎬?  try {
     if (state.selected) {
       const all = Array.from(state.container.querySelectorAll('.lib-node')) as HTMLElement[]
       const hit = all.find((el) => (el as any).dataset?.path === state.selected)
@@ -883,8 +875,8 @@ async function renderRoot(root: string) {
       }
       try { await state.opts?.onMoved?.(src, finalDst) } catch {}
       await refresh()
-      console.log('[drag] move done:', src, '->', finalDst)
-    } catch (err) { console.error('[drag] move failed:', err) }
+      console.log('[鎷栧姩] 绉诲姩瀹屾垚:', src, '鈫?, finalDst)
+    } catch (err) { console.error('[鎷栧姩] 绉诲姩澶辫触:', err) }
   })
 
   topRow.addEventListener('click', async () => {
@@ -898,50 +890,72 @@ async function renderRoot(root: string) {
 }
 
 // 鍐呴儴鍒锋柊鍑芥暟锛屼笉閲嶆柊璁剧疆鐩戝惉
-
 async function refreshTree() {
   const root = await state.opts!.getRoot()
   if (!root) {
     if (state.container) state.container.innerHTML = ''
-    if (state.unwatch) { try { state.unwatch() } catch {} }
-    state.unwatch = null
-    state.watching = false
+    return
+  }
+  state.currentRoot = root
+  restoreExpandedState(root)
+  // 鍒锋柊鍓嶆竻鐞嗙洰褰曠紦瀛橈紝纭繚鏄剧ず涓庡疄闄呮枃浠剁姸鎬佷竴鑷?  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
+  await renderRoot(root)
+}
+
+async function refresh() {
+  const root = await state.opts!.getRoot()
+  // 鑻ユ湭閫夋嫨搴撶洰褰曪紝涓嶅啀鍦ㄤ晶鏍忔樉绀烘彁绀猴紝淇濇寔绌虹櫧鍗冲彲锛岄伩鍏嶈瀵肩敤鎴?  if (!root) {
     state.currentRoot = null
+    state.expanded = new Set<string>()
+    if (state.container) state.container.innerHTML = ''
+    // 娓呯悊鏃х殑鐩戝惉鍣?    if (state.unwatch) {
+      try { state.unwatch() } catch {}
+      state.unwatch = null
+      state.watching = false
+    }
     return
   }
 
-  if (state.currentRoot && state.currentRoot !== root && state.unwatch) {
-    try { state.unwatch() } catch {}
-    state.unwatch = null
-    state.watching = false
+  // 濡傛灉搴撴牴鐩綍鏀瑰彉浜嗭紝闇€瑕侀噸鏂拌缃洃鍚?  if (state.currentRoot !== root) {
+    if (state.unwatch) {
+      try { state.unwatch() } catch {}
+      state.unwatch = null
+      state.watching = false
+    }
   }
 
   state.currentRoot = root
   restoreExpandedState(root)
-  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
+  // 鍒锋柊鍓嶆竻鐞嗙洰褰曠紦瀛橈紝纭繚鏄剧ず涓庡疄闄呮枃浠剁姸鎬佷竴鑷?  try { hasDocCache.clear(); hasDocPending.clear() } catch {}
   await renderRoot(root)
 
-  if (!state.watching) {
+  // 璁剧疆鏂囦欢鐩戝惉锛堝鏋滆繕鏈缃垨鏍圭洰褰曟敼鍙樹簡锛?  if (!state.watching) {
     try {
-      const stop = await watchImmediate(root, async () => {
-        try { await refreshTree() } catch (err) { console.error('[watch] refresh failed:', err) }
+      const u = await watchImmediate(root, async (event) => {
+        console.log('[鏂囦欢鏍慮 妫€娴嬪埌鏂囦欢鍙樺寲:', event.type, event.paths)
+        // 浣跨敤鍐呴儴鍒锋柊鍑芥暟锛岄伩鍏嶉噸鏂拌缃洃鍚?        await refreshTree()
       }, { recursive: true })
-      state.unwatch = () => { try { stop() } catch {} }
+      state.unwatch = () => { try { u(); } catch {} }
       state.watching = true
-      console.log('[watch] started:', root)
+      console.log('[鏂囦欢鏍慮 宸插惎鍔ㄦ枃浠剁洃鍚?', root)
     } catch (err) {
-      console.error('[watch] start failed:', err)
+      console.error('[鏂囦欢鏍慮 鍚姩鏂囦欢鐩戝惉澶辫触:', err)
+      console.log('[鏂囦欢鏍慮 娉ㄦ剰: 鏂囦欢绯荤粺鐩戝惉涓嶅彲鐢紝闇€瑕佹墜鍔ㄥ埛鏂版垨浣跨敤鎻掍欢鎻愪緵鐨勫埛鏂板姛鑳?)
+      // 濡傛灉鏂囦欢鐩戝惉澶辫触锛屾爣璁颁负宸插皾璇曪紝閬垮厤閲嶅灏濊瘯
+      state.watching = true
     }
   }
 }
 
 async function init(container: HTMLElement, opts: FileTreeOptions) {
-  state.container = container
-  state.opts = opts
+  state.container = container; state.opts = opts
   loadFolderOrder()
-  try { container.addEventListener('dragover', (ev) => { ev.preventDefault() }) } catch {}
-  await refreshTree()
-}
+  // 鍏滃簳锛氬湪鏁翠釜鏂囦欢鏍戝尯鍩熷唴鍏佽 dragover锛岄伩鍏嶅嚭鐜板叏灞€"绂佹"鍏夋爣
+  try {
+    container.addEventListener('dragover', (ev) => { ev.preventDefault() })
+  } catch {}
+  await refresh()
+  // 鏂囦欢鐩戝惉宸茬粡鍦?refresh() 鍑芥暟涓嚜鍔ㄨ缃?}
 
 async function newFileInSelected() {
   const root = await state.opts!.getRoot()
@@ -991,8 +1005,7 @@ async function conflictModal(title: string, actions: string[], defaultIndex = 1)
   })
 }
 
-// 24 ?????
-export const FOLDER_ICONS = ['\u{1F4C1}', '\u{1F4C2}', '\u{1F5C2}\uFE0F', '\u{1F4E6}', '\u{1F5C3}\uFE0F', '\u{1F5C4}\uFE0F', '\u{1F4C4}', '\u{1F4C3}', '\u{1F4D2}', '\u{1F4D3}', '\u{1F4D4}', '\u{1F4D5}', '\u{1F4D7}', '\u{1F4D8}', '\u{1F4D9}', '\u{1F4DA}', '\u{2B50}', '\u{1F31F}', '\u{1F516}', '\u{1F3F7}\uFE0F', '\u{2705}', '\u{2611}\uFE0F', '\u{1F512}', '\u{1F513}'];
+// 24涓彲閫夊浘鏍?export const FOLDER_ICONS = ['馃搧', '馃搨', '馃梻锔?, '馃梼锔?, '馃梽锔?, '馃摎', '馃摉', '馃摃', '馃摋', '馃摌', '馃摍', '馃摀', '馃摂', '馃搵', '馃搼', '馃摝', '馃幆', '猸?, '馃敄', '馃捈', '馃帹', '馃敡', '鈿欙笍', '馃彔']
 
 export async function folderIconModal(folderName: string, icons: string[]): Promise<number | null> {
   return await new Promise<number | null>((resolve) => {
