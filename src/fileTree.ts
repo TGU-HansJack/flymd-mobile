@@ -144,7 +144,10 @@ function displayNameForRoot(p: string): string {
   try {
     let tail = p.split(/[\\/]+/).filter(Boolean).pop() || p
     try { tail = decodeURIComponent(tail) } catch {}
-    if (tail.includes(':')) tail = tail.split(':').pop() || tail
+    if (tail.includes(':')) {
+      const colonParts = tail.split(':').filter(Boolean)
+      tail = colonParts.length ? colonParts[colonParts.length - 1] : tail.replace(/:+$/, '')
+    }
     tail = tail.replace(/^tree\//i, '').replace(/^document\//i, '')
     tail = tail.split(/[/]+/).filter(Boolean).pop() || tail
     return tail || p
