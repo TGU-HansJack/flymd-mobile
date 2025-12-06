@@ -8,27 +8,19 @@ export async function open(options?: {
   directory?: boolean
   filters?: OpenDialogFilter[]
 }): Promise<string | null> {
-  try {
-    if (options?.directory) {
-      const { uri } = await Saf.pickDirectory()
-      return uri
-    } else {
-      const { uri } = await Saf.pickDocument()
-      return uri
-    }
-  } catch {
-    return null
+  if (options?.directory) {
+    const { uri } = await Saf.pickDirectory()
+    return uri
+  } else {
+    const { uri } = await Saf.pickDocument()
+    return uri
   }
 }
 
 export async function save(options?: { defaultPath?: string; filters?: OpenDialogFilter[] }): Promise<string | null> {
   const filename = options?.defaultPath || 'untitled.md'
-  try {
-    const { uri } = await Saf.createDocument({ filename, mimeType: 'text/markdown' })
-    return uri
-  } catch {
-    return null
-  }
+  const { uri } = await Saf.createDocument({ filename, mimeType: 'text/markdown' })
+  return uri
 }
 
 export async function ask(message: string | { title?: string; message?: string }, _opts?: { okLabel?: string; cancelLabel?: string }): Promise<boolean> {
