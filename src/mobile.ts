@@ -140,6 +140,7 @@ function adaptVirtualKeyboard(): void {
   if ('visualViewport' in window) {
     const viewport = window.visualViewport!
     const editor = document.getElementById('editor')
+    const bottomBar = document.getElementById('mobile-bottom-bar') as HTMLDivElement | null
 
     viewport.addEventListener('resize', () => {
       if (!editor) return
@@ -150,9 +151,13 @@ function adaptVirtualKeyboard(): void {
       if (keyboardHeight > 100) {
         // 键盘弹出
         editor.style.paddingBottom = `${keyboardHeight}px`
+        document.body.classList.add('keyboard-open')
+        if (bottomBar) bottomBar.style.marginBottom = `${Math.max(0, keyboardHeight - 10)}px`
       } else {
         // 键盘收起
         editor.style.paddingBottom = '0'
+        document.body.classList.remove('keyboard-open')
+        if (bottomBar) bottomBar.style.marginBottom = ''
       }
     })
   }

@@ -27,6 +27,7 @@ import { t, fmtStatus, getLocalePref, setLocalePref, getLocale } from './i18n'
 
 // markdown-it 和 DOMPurify 改为按需动态 import，类型仅在编译期引用
 import type MarkdownIt from 'markdown-it'
+import type { TabDocument } from './tabs/types'
 // WYSIWYG: 锚点插件与锚点同步（用于替换纯比例同步）
 import { enableWysiwygV2, disableWysiwygV2, wysiwygV2ToggleBold, wysiwygV2ToggleItalic, wysiwygV2ApplyLink, wysiwygV2GetSelectedText, wysiwygV2FindNext, wysiwygV2FindPrev, wysiwygV2ReplaceOne as wysiwygV2ReplaceOneSel, wysiwygV2ReplaceAllInDoc, wysiwygV2ReplaceAll } from './wysiwyg/v2/index'
 
@@ -472,6 +473,7 @@ let _libEdgeEl: HTMLDivElement | null = null
 let _libFloatToggleEl: HTMLButtonElement | null = null
 let _settingsOverlayEl: HTMLDivElement | null = null
 let _settingsPluginListEl: HTMLDivElement | null = null
+let _librarySwipeBound = false
 function selectLibraryNode(el: HTMLElement | null, path: string | null, isDir: boolean) {
   try {
     if (selectedNodeEl) selectedNodeEl.classList.remove('selected')
@@ -656,6 +658,20 @@ let _extApplyMarketFilter: ((itemsOverride?: InstallableItem[] | null) => Promis
 type PluginMenuItem = { pluginId: string; label: string; onClick?: () => void; children?: any[] }
 const pluginsMenuItems = new Map<string, PluginMenuItem>() // 收纳到"插件"菜单的项目
 let _pluginsMenuBtn: HTMLDivElement | null = null // "插件"菜单按钮
+
+// 底部抽屉/导航
+let _tabManagerRef: {
+  getTabs?: () => readonly TabDocument[]
+  getActiveTabId?: () => string | null
+  switchToTab?: (id: string) => Promise<void>
+  closeTab?: (id: string) => Promise<boolean>
+  createNewTab?: () => TabDocument
+  addEventListener?: (fn: any) => (() => void) | void
+} | null = null
+let _tabEventsUnsub: (() => void) | null = null
+let _tabSheetOverlay: HTMLDivElement | null = null
+let _commandsSheetOverlay: HTMLDivElement | null = null
+let _bottomBarEl: HTMLDivElement | null = null
 
 // 右键菜单管理
 const pluginContextMenuItems: PluginContextMenuItem[] = [] // 所有插件注册的右键菜单项
@@ -1182,12 +1198,14 @@ function addToPluginsMenu(pluginId: string, config: { label: string; onClick?: (
     children: config.children
   })
   updatePluginsMenuButton()
+  refreshQuickCommandsSheet()
 }
 
 // 从插件菜单移除
 function removeFromPluginsMenu(pluginId: string) {
   pluginsMenuItems.delete(pluginId)
   updatePluginsMenuButton()
+  refreshQuickCommandsSheet()
 }
 
 // 更新插件菜单按钮显示状态
@@ -1201,6 +1219,104 @@ function updatePluginsMenuButton() {
     _pluginsMenuBtn.style.display = 'none'
   }
 }
+
+// 底部抽屉工具
+function attachBottomSheetSwipe(overlay: HTMLElement | null, panel: HTMLElement | null, onClose: () => void): void {
+  if (!overlay || !panel) return
+  if ((panel as any)._sheetSwipeBound) return
+
+  let startY = 0
+  let dragging = false
+  let lastDy = 0
+
+  const reset = () => {
+    try { panel.style.transition = '' } catch {}
+    try { panel.style.transform = '' } catch {}
+    try { overlay.style.opacity = '' } catch {}
+  }
+
+  const onStart = (e: TouchEvent) => {
+    if (!e.touches || e.touches.length !== 1) return
+    dragging = true
+    startY = e.touches[0].clientY
+    lastDy = 0
+    try { panel.style.transition = 'none' } catch {}
+  }
+  const onMove = (e: TouchEvent) => {
+    if (!dragging || !e.touches || e.touches.length !== 1) return
+    const dy = e.touches[0].clientY - startY
+    if (dy < 0) return
+    lastDy = dy
+    const limited = Math.min(dy, 220)
+    try { panel.style.transform = `translateY(${limited}px)` } catch {}
+    try {
+      const nextOpacity = Math.max(0.25, 1 - limited / 320)
+      overlay.style.opacity = `${nextOpacity}`
+    } catch {}
+  }
+  const onEnd = () => {
+    const shouldClose = lastDy > 70
+    reset()
+    if (dragging && shouldClose) onClose()
+    dragging = false
+    lastDy = 0
+  }
+
+  panel.addEventListener('touchstart', onStart, { passive: true })
+  panel.addEventListener('touchmove', onMove, { passive: true })
+  panel.addEventListener('touchend', onEnd)
+  panel.addEventListener('touchcancel', onEnd)
+  ;(panel as any)._sheetSwipeBound = true
+}
+
+function showSheet(overlay: HTMLElement | null): void {
+  if (!overlay) return
+  overlay.classList.remove('hidden')
+  overlay.classList.add('show')
+  try { overlay.setAttribute('aria-hidden', 'false') } catch {}
+}
+
+function hideSheet(overlay: HTMLElement | null): void {
+  if (!overlay) return
+  overlay.classList.remove('show')
+  overlay.classList.add('hidden')
+  try { overlay.setAttribute('aria-hidden', 'true') } catch {}
+}
+
+function ensureSheet(id: string, title: string, icon?: string): { overlay: HTMLDivElement; body: HTMLDivElement | null } | null {
+  try {
+    let overlay = document.getElementById(id) as HTMLDivElement | null
+    if (!overlay) {
+      const closeLabel = t('about.close') || '关闭'
+      overlay = document.createElement('div')
+      overlay.id = id
+      overlay.className = 'sheet-overlay hidden'
+      overlay.setAttribute('aria-hidden', 'true')
+      overlay.innerHTML = `
+        <div class="sheet-panel">
+          <div class="sheet-header">
+            <div class="sheet-title">${icon ? `<i class="${icon}" aria-hidden="true"></i>` : ''}<span class="sheet-title-text">${title}</span></div>
+            <button class="sheet-close" type="button" aria-label="${closeLabel}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+          </div>
+          <div class="sheet-body"></div>
+        </div>
+      `
+      document.body.appendChild(overlay)
+      const panel = overlay.querySelector('.sheet-panel') as HTMLDivElement | null
+      const closeBtn = overlay.querySelector('.sheet-close') as HTMLButtonElement | null
+      const close = () => hideSheet(overlay!)
+      overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close() })
+      closeBtn?.addEventListener('click', close)
+      attachBottomSheetSwipe(overlay, panel, close)
+    }
+    const titleEl = overlay.querySelector('.sheet-title-text') as HTMLSpanElement | null
+    if (titleEl) titleEl.textContent = title
+    const body = overlay.querySelector('.sheet-body') as HTMLDivElement | null
+    return { overlay, body }
+  } catch { return null }
+}
+
+try { (window as any).__attachBottomSheetSwipe = attachBottomSheetSwipe } catch {}
 
 // ============ 右键菜单系统 ============
 
@@ -1551,6 +1667,7 @@ try { initWindowResize() } catch {}
 const editor = document.getElementById('editor') as HTMLTextAreaElement
 const preview = document.getElementById('preview') as HTMLDivElement
 const filenameLabel = document.getElementById('filename') as HTMLDivElement
+try { initMobileBottomBar() } catch {}
 // 窗口控制按钮（紧凑标题栏模式使用）
 try {
   const minBtn = document.getElementById('window-minimize') as HTMLButtonElement | null
@@ -3046,6 +3163,7 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     <div class="lib-outline hidden" id="lib-outline"></div>
   `
   containerEl.appendChild(library)
+  try { initLibrarySwipeGesture() } catch {}
   // 创建边缘唤醒热区（默认隐藏）
   try {
     _libEdgeEl = document.createElement('div') as HTMLDivElement
@@ -3168,9 +3286,10 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
         // 重新创建关于对话框并挂载
         const about = document.createElement('div')
         about.id = 'about-overlay'
-        about.className = 'about-overlay hidden'
+        about.className = 'about-overlay sheet-overlay hidden'
+        about.setAttribute('aria-hidden', 'true')
         about.innerHTML = `
-          <div class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
+          <div class="about-dialog sheet-panel" role="dialog" aria-modal="true" aria-labelledby="about-title">
             <div class="about-header">
               <div id="about-title">${t('about.title')}  v${APP_VERSION}</div>
               <button id="about-close" class="about-close" title="${t('about.close')}">×</button>
@@ -3181,6 +3300,10 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
           </div>
         `
         containerEl.appendChild(about)
+        try {
+          const dialog = about.querySelector('.about-dialog') as HTMLDivElement | null
+          attachBottomSheetSwipe(about, dialog, () => showAbout(false))
+        } catch {}
         try {
           const aboutBody = about.querySelector('.about-body') as HTMLDivElement | null
           if (aboutBody) {
@@ -3240,12 +3363,12 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     }
     } catch {}
 
-    // 插入链接对话框：初始化并挂载到容器
-    const link = document.createElement('div')
-    link.id = 'link-overlay'
-    link.className = 'link-overlay hidden'
+  // 插入链接对话框：初始化并挂载到容器
+  const link = document.createElement('div')
+  link.id = 'link-overlay'
+    link.className = 'link-overlay sheet-overlay hidden'
   link.innerHTML = `
-      <div class="link-dialog" role="dialog" aria-modal="true" aria-labelledby="link-title">
+      <div class="link-dialog sheet-panel" role="dialog" aria-modal="true" aria-labelledby="link-title">
         <div class="link-header">
           <div id="link-title">${t('dlg.link')}</div>
           <button id="link-close" class="about-close" title="${t('about.close')}">×</button>
@@ -3267,13 +3390,17 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     </div>
   `
   containerEl.appendChild(link)
+  try {
+    const dlg = link.querySelector('.link-dialog') as HTMLDivElement | null
+    attachBottomSheetSwipe(link, dlg, () => showLinkOverlay(false))
+  } catch {}
 
   // 重命名对话框（样式复用“插入链接”对话框风格）
   const rename = document.createElement('div')
   rename.id = 'rename-overlay'
-  rename.className = 'link-overlay hidden'
+  rename.className = 'link-overlay sheet-overlay hidden'
   rename.innerHTML = `
-      <div class="link-dialog" role="dialog" aria-modal="true" aria-labelledby="rename-title">
+      <div class="link-dialog sheet-panel" role="dialog" aria-modal="true" aria-labelledby="rename-title">
         <div class="link-header">
           <div id="rename-title">${t('dlg.rename')}</div>
           <button id="rename-close" class="about-close" title="${t('about.close')}">×</button>
@@ -3295,13 +3422,18 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     </div>
   `
   containerEl.appendChild(rename)
+  try {
+    const dlg = rename.querySelector('.link-dialog') as HTMLDivElement | null
+    attachBottomSheetSwipe(rename, dlg, () => hideSheet(rename))
+  } catch {}
 
   // 图床设置对话框
   const upl = document.createElement('div')
   upl.id = 'uploader-overlay'
-  upl.className = 'upl-overlay hidden'
+  upl.className = 'upl-overlay sheet-overlay hidden'
+  upl.setAttribute('aria-hidden', 'true')
   upl.innerHTML = `
-    <div class="upl-dialog" role="dialog" aria-modal="true" aria-labelledby="upl-title">
+    <div class="upl-dialog sheet-panel" role="dialog" aria-modal="true" aria-labelledby="upl-title">
       <div class="upl-header">
         <div id="upl-title">${t('upl.title')}</div>
         <button id="upl-close" class="about-close" title="${t('about.close')}">×</button>
@@ -3387,6 +3519,10 @@ wysiwygCaretEl.id = 'wysiwyg-caret'
     </div>
   `
   containerEl.appendChild(upl)
+  try {
+    const dialog = upl.querySelector('.upl-dialog') as HTMLDivElement | null
+    attachBottomSheetSwipe(upl, dialog, () => showUploaderOverlay(false))
+  } catch {}
   }
 
 // 打开“插入链接”对话框的 Promise 控制器
@@ -3395,8 +3531,8 @@ let linkDialogResolver: ((result: { label: string; url: string } | null) => void
 function showLinkOverlay(show: boolean) {
   const overlay = document.getElementById('link-overlay') as HTMLDivElement | null
   if (!overlay) return
-  if (show) overlay.classList.remove('hidden')
-  else overlay.classList.add('hidden')
+  if (show) showSheet(overlay)
+  else hideSheet(overlay)
 }
 
 async function openRenameDialog(stem: string, ext: string): Promise<string | null> {
@@ -3418,14 +3554,14 @@ async function openRenameDialog(stem: string, ext: string): Promise<string | nul
       const onCancel = () => { resolve(null); cleanup() }
       const onOverlay = (e: MouseEvent) => { if (e.target === overlay) onCancel() }
       function cleanup() {
-        overlay.classList.add('hidden')
+        hideSheet(overlay)
         try { form.removeEventListener('submit', onSubmit); btnCancel?.removeEventListener('click', onCancel); btnClose?.removeEventListener('click', onCancel); overlay.removeEventListener('click', onOverlay) } catch {}
       }
       form.addEventListener('submit', onSubmit)
       btnCancel?.addEventListener('click', onCancel)
       btnClose?.addEventListener('click', onCancel)
       overlay.addEventListener('click', onOverlay)
-      overlay.classList.remove('hidden')
+      showSheet(overlay)
       setTimeout(() => inputText.focus(), 0)
     })
   } catch { return null }
@@ -4372,9 +4508,10 @@ function ensureUpdateOverlay(): HTMLDivElement {
   if (ov) return ov
   const div = document.createElement('div')
   div.id = id
-  div.className = 'link-overlay hidden'
+  div.className = 'link-overlay sheet-overlay hidden'
+  div.setAttribute('aria-hidden', 'true')
   div.innerHTML = `
-    <div class="link-dialog" role="dialog" aria-modal="true" aria-labelledby="update-title">
+    <div class="link-dialog sheet-panel" role="dialog" aria-modal="true" aria-labelledby="update-title">
       <div class="link-header">
         <div id="update-title">检查更新</div>
         <button id="update-close" class="about-close" title="关闭">×</button>
@@ -4386,7 +4523,12 @@ function ensureUpdateOverlay(): HTMLDivElement {
   const container = document.querySelector('.container') as HTMLDivElement | null
   if (container) container.appendChild(div)
   const btn = div.querySelector('#update-close') as HTMLButtonElement | null
-  if (btn) btn.addEventListener('click', () => div.classList.add('hidden'))
+  if (btn) btn.addEventListener('click', () => hideSheet(div))
+  div.addEventListener('click', (e) => { if (e.target === div) hideSheet(div) })
+  try {
+    const dlg = div.querySelector('.link-dialog') as HTMLDivElement | null
+    attachBottomSheetSwipe(div, dlg, () => hideSheet(div))
+  } catch {}
   return div
 }
 
@@ -4413,8 +4555,8 @@ function showUpdateDownloadedOverlay(savePath: string, resp: CheckUpdateResp) {
   mkBtn('直接运行安装包', () => { void openPath(savePath) })
   mkBtn('打开所在文件夹', () => { if (dir) void openPath(dir) })
   mkBtn('前往发布页', () => { void openInBrowser(resp.htmlUrl) })
-  mkBtn('关闭', () => ov.classList.add('hidden'))
-  ov.classList.remove('hidden')
+  mkBtn('关闭', () => hideSheet(ov))
+  showSheet(ov)
 }
   const ov = ensureUpdateOverlay()
   const body = ov.querySelector('#update-body') as HTMLDivElement
@@ -4445,8 +4587,8 @@ function showUpdateDownloadedOverlay(savePath: string, resp: CheckUpdateResp) {
     mkBtn('下载 DEB（代理）', () => { void openInBrowser('https://gh-proxy.com/' + resp.assetLinuxDeb!.directUrl) })
   }
   mkBtn('前往发布页', () => { void openInBrowser(resp.htmlUrl) })
-  mkBtn('关闭', () => ov.classList.add('hidden'))
-  ov.classList.remove('hidden')
+  mkBtn('关闭', () => hideSheet(ov))
+  showSheet(ov)
 }
 
 async function checkUpdateInteractive() {
@@ -4639,8 +4781,8 @@ function showInstallFailedOverlay(savePath: string, resp: CheckUpdateResp) {
   const mkBtn = (label: string, onClick: () => void) => { const b = document.createElement('button'); b.textContent = label; b.addEventListener('click', onClick); act.appendChild(b); return b }
   mkBtn('打开下载目录', () => { if (dir) void openPath(dir) })
   mkBtn('前往发布页', () => { void openInBrowser(resp.htmlUrl) })
-  mkBtn('关闭', () => ov.classList.add('hidden'))
-  ov.classList.remove('hidden')
+  mkBtn('关闭', () => hideSheet(ov))
+  showSheet(ov)
 }
 
 // Windows：下载并尝试安装（直连/代理轮试），失败时弹出失败提示
@@ -4689,20 +4831,20 @@ async function showUpdateOverlay(resp: CheckUpdateResp) {
   const extra = await loadUpdateExtra().catch(() => null)
   body.innerHTML = await renderUpdateDetailsHTML(resp, extra)
   act.innerHTML = ''
-  const mkBtn = (label: string, onClick: () => void) => { const b = document.createElement('button'); b.textContent = label; b.addEventListener('click', onClick); act.appendChild(b); return b }
+  const mkBtn = (label: string, onClick: () => void) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.addEventListener('click', onClick); act.appendChild(b); return b }
 
   // Windows：立即更新 + 发布页
   if (resp.assetWin) {
-    { const b = mkBtn('立即更新', () => { ov.classList.add('hidden'); void downloadAndInstallWin(resp.assetWin!, resp) }); try { b.classList.add('btn-primary') } catch {} }
-    { const b = mkBtn('发布页', () => { void openInBrowser(resp.htmlUrl) }); try { b.classList.add('btn-secondary') } catch {} }
-    ov.classList.remove('hidden')
+    { const b = mkBtn('立即更新', () => { hideSheet(ov); void downloadAndInstallWin(resp.assetWin!, resp) }); try { b.classList.add('btn-primary') } catch {} }
+    { const b = mkBtn('发布页', () => { hideSheet(ov); void openInBrowser(resp.htmlUrl) }); try { b.classList.add('btn-secondary') } catch {} }
+    showSheet(ov)
     return
   }
   // macOS：若提供资产，直接下载后 open；否则仅发布页
   if (resp.assetMacosArm || resp.assetMacosX64) {
     const a = (resp.assetMacosArm || resp.assetMacosX64) as UpdateAssetInfo
     { const b = mkBtn('立即更新', async () => {
-      ov.classList.add('hidden')
+      hideSheet(ov)
       try {
         upMsg('正在下载安装包…')
         let savePath = ''
@@ -4715,12 +4857,12 @@ async function showUpdateOverlay(resp: CheckUpdateResp) {
         try { await openPath(savePath) } catch { showInstallFailedOverlay(savePath, resp) }
       } catch { try { await openInBrowser(resp.htmlUrl) } catch {} }
     }); try { b.classList.add('btn-primary') } catch {} }
-    { const b = mkBtn('发布页', () => { void openInBrowser(resp.htmlUrl) }); try { b.classList.add('btn-secondary') } catch {} }
-    ov.classList.remove('hidden')
+    { const b = mkBtn('发布页', () => { hideSheet(ov); void openInBrowser(resp.htmlUrl) }); try { b.classList.add('btn-secondary') } catch {} }
+    showSheet(ov)
     return
   }
   // Linux：沿用现有按钮组
-  showUpdateOverlayLinux(resp)
+  return showUpdateOverlayLinux(resp)
 }
 
 function checkUpdateSilentOnceAfterStartup() {
@@ -5985,8 +6127,8 @@ try {
 function showUploaderOverlay(show: boolean) {
   const overlay = document.getElementById('uploader-overlay') as HTMLDivElement | null
   if (!overlay) return
-  if (show) overlay.classList.remove('hidden')
-  else overlay.classList.add('hidden')
+  if (show) showSheet(overlay)
+  else hideSheet(overlay)
 }
 
 // 读取“总是保存到本地”配置
@@ -6255,10 +6397,10 @@ function ensureSettingsOverlay(): HTMLDivElement | null {
 
   const overlay = document.createElement('div')
   overlay.id = 'settings-overlay'
-  overlay.className = 'settings-overlay'
+  overlay.className = 'settings-overlay sheet-overlay hidden'
   overlay.setAttribute('aria-hidden', 'true')
   overlay.innerHTML = `
-    <div class="settings-panel">
+    <div class="settings-panel sheet-panel">
       <div class="settings-header">
         <button class="settings-back" id="settings-back" aria-label="${backLabel}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
         <div class="settings-title">${settingsTitle}</div>
@@ -6276,7 +6418,7 @@ function ensureSettingsOverlay(): HTMLDivElement | null {
         <div class="settings-group">
           <div class="settings-group-title"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i><span>${featureTitle}</span></div>
           <div class="settings-items">
-            ${buildSettingsItem('settings-webdav', 'fa-solid fa-cloud-arrow-left', 'WebDAV 同步', '配置云端同步与冲突策略')}
+            ${buildSettingsItem('settings-webdav', 'fa-solid fa-cloud', 'WebDAV 同步', '配置云端同步与冲突策略')}
             ${buildSettingsItem('settings-uploader', 'fa-solid fa-cloud-arrow-up', t('menu.uploader'), '粘贴/拖拽图片自动上传')}
             ${buildSettingsItem('settings-ai', 'fa-solid fa-robot', 'AI 助手', '模型与密钥设置，打开独立面板')}
             ${buildSettingsItem('settings-market', 'fa-solid fa-store', '扩展市场', '安装或管理插件与功能扩展')}
@@ -6296,6 +6438,10 @@ function ensureSettingsOverlay(): HTMLDivElement | null {
   const backBtn = overlay.querySelector('#settings-back') as HTMLButtonElement | null
   closeBtn?.addEventListener('click', closeOverlay)
   backBtn?.addEventListener('click', closeOverlay)
+  try {
+    const panel = overlay.querySelector('.settings-panel') as HTMLDivElement | null
+    attachBottomSheetSwipe(overlay, panel, closeOverlay)
+  } catch {}
 
   const actionMap: Record<string, () => Promise<void> | void> = {
     'settings-about': () => showAbout(true),
@@ -6319,10 +6465,7 @@ function ensureSettingsOverlay(): HTMLDivElement | null {
 
 function closeSettingsOverlay(): void {
   try {
-    if (_settingsOverlayEl) {
-      _settingsOverlayEl.classList.remove('show')
-      _settingsOverlayEl.setAttribute('aria-hidden', 'true')
-    }
+    if (_settingsOverlayEl) hideSheet(_settingsOverlayEl)
   } catch {}
 }
 
@@ -6330,8 +6473,8 @@ async function openSettingsOverlay(): Promise<void> {
   try {
     const overlay = ensureSettingsOverlay()
     if (!overlay) return
-    overlay.classList.add('show')
-    overlay.setAttribute('aria-hidden', 'false')
+    try { showLibrary(false, false) } catch {}
+    showSheet(overlay)
     await refreshSettingsPluginList()
   } catch {}
 }
@@ -6480,6 +6623,46 @@ async function openAiAssistantSettings(): Promise<void> {
   syncLibraryEdgeState(visible)
   syncLibraryFloatToggle()
   syncCustomTitlebarPlacement()
+}
+
+  function initLibrarySwipeGesture(): void {
+  if (_librarySwipeBound || !isMobilePlatform()) return
+  const surface = document.querySelector('.container') as HTMLElement | null
+  const lib = document.getElementById('library') as HTMLDivElement | null
+  if (!surface || !lib) return
+  _librarySwipeBound = true
+  let startX = 0
+  let startY = 0
+  let dragging = false
+  surface.addEventListener('touchstart', (ev: TouchEvent) => {
+    if (!ev.touches || ev.touches.length !== 1) return
+    const t = ev.touches[0]
+    const edge = 28
+    const fromLeft = t.clientX <= edge && librarySide !== 'right'
+    const fromRight = t.clientX >= (window.innerWidth - edge) && librarySide === 'right'
+    if (fromLeft || fromRight) {
+      startX = t.clientX
+      startY = t.clientY
+      dragging = true
+    } else {
+      dragging = false
+    }
+  }, { passive: true })
+  surface.addEventListener('touchmove', (ev: TouchEvent) => {
+    if (!dragging || !ev.touches || ev.touches.length !== 1) return
+    const t = ev.touches[0]
+    const dx = t.clientX - startX
+    const dy = Math.abs(t.clientY - startY)
+    if (dy > 40) { dragging = false; return }
+    const threshold = 50
+    if ((librarySide !== 'right' && dx > threshold) || (librarySide === 'right' && -dx > threshold)) {
+      showLibrary(true, false)
+      dragging = false
+    }
+  }, { passive: true })
+  const cancel = () => { dragging = false }
+  surface.addEventListener('touchend', cancel)
+  surface.addEventListener('touchcancel', cancel)
 }
 
   // 库面板显示/隐藏：使用覆盖式抽屉为默认；若开启“固定”，则并排显示
@@ -8118,8 +8301,8 @@ async function newFolderSafe(dir: string, name = '新建文件夹'): Promise<str
 function showAbout(show: boolean) {
   const overlay = document.getElementById('about-overlay') as HTMLDivElement | null
   if (!overlay) return
-  if (show) overlay.classList.remove('hidden')
-  else overlay.classList.add('hidden')
+  if (show) showSheet(overlay)
+  else hideSheet(overlay)
 }
 
 // 顶级菜单下拉（参考库右键菜单的样式实现，纯 JS 内联样式，避免全局 CSS 入侵）
@@ -8806,6 +8989,7 @@ function bindEvents() {
   if (btnToggle) btnToggle.addEventListener('click', guard(() => toggleMode()))
   if (btnWysiwyg) btnWysiwyg.addEventListener('click', guard(() => toggleWysiwyg()))
   // 查找替换对话框（源码模式，Ctrl+H）
+  let _findOverlay: HTMLDivElement | null = null
   let _findPanel: HTMLDivElement | null = null
   let _findInput: HTMLInputElement | null = null
   let _replaceInput: HTMLInputElement | null = null
@@ -8829,52 +9013,48 @@ function bindEvents() {
   let _astSelS = 0
   let _astSelE = 0
   function ensureFindPanel() {
-    if (_findPanel) return
-    const panel = document.createElement('div')
-    panel.id = 'find-replace-panel'
-    panel.style.position = 'fixed'
-    panel.style.right = '16px'
-    panel.style.top = '56px'
-    panel.style.zIndex = '9999'
-    panel.style.background = 'var(--bg)'
-    panel.style.color = 'var(--fg)'
-    panel.style.border = '1px solid var(--border)'
-    panel.style.boxShadow = '0 6px 16px rgba(0,0,0,0.15)'
-    panel.style.borderRadius = '8px'
-    panel.style.padding = '8px 10px'
-    panel.style.display = 'none'
-    panel.style.minWidth = '260px'
-    panel.innerHTML = `
-      <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
-        <input id="find-text" type="text" placeholder="查找... (Enter=下一个, Shift+Enter=上一个)" style="flex:1; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg);" />
-        <span id="find-count" style="text-align:center; font-size:11px; color:var(--muted); white-space:nowrap; padding:3px 6px; border-radius:4px; background:rgba(127,127,127,0.08); border:1px solid rgba(127,127,127,0.12);"></span>
-        <label title="区分大小写" style="display:flex; align-items:center; gap:4px; user-select:none;">
-          <input id="find-case" type="checkbox" />Aa
-        </label>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <input id="replace-text" type="text" placeholder="替换为..." style="flex:1; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg);" />
-        <button id="btn-find-prev" style="padding:6px 8px;">上一个</button>
-        <button id="btn-find-next" style="padding:6px 8px;">下一个</button>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-        <button id="btn-replace" style="padding:6px 10px;">替换</button>
-        <button id="btn-replace-all" style="padding:6px 10px;">全部替换</button>
-        <button id="btn-close-find" style="margin-left:auto; padding:6px 10px;">关闭 (Esc)</button>
-      </div>
-    
-    `
-    document.body.appendChild(panel)
-    _findPanel = panel
-    _findInput = panel.querySelector('#find-text') as HTMLInputElement
-    _replaceInput = panel.querySelector('#replace-text') as HTMLInputElement
-    _findCase = panel.querySelector('#find-case') as HTMLInputElement
-    const btnPrev = panel.querySelector('#btn-find-prev') as HTMLButtonElement
-    const btnNext = panel.querySelector('#btn-find-next') as HTMLButtonElement
-    const btnRep = panel.querySelector('#btn-replace') as HTMLButtonElement
-    const btnAll = panel.querySelector('#btn-replace-all') as HTMLButtonElement
-    const btnClose = panel.querySelector('#btn-close-find') as HTMLButtonElement
-    const lblCount = panel.querySelector('#find-count') as HTMLSpanElement | null
+    if (_findPanel && _findOverlay) return
+    const sheet = ensureSheet('find-overlay', '查找 / 替换', 'fa-solid fa-magnifying-glass')
+    if (!sheet) return
+    _findOverlay = sheet.overlay
+    const host = sheet.body
+    if (host) {
+      host.innerHTML = `
+        <div class="find-panel" id="find-replace-panel">
+          <div class="find-row">
+            <input id="find-text" type="text" placeholder="查找... (Enter=下一个, Shift+Enter=上一个)" />
+            <span id="find-count" class="find-count"></span>
+            <label class="find-case" title="区分大小写">
+              <input id="find-case" type="checkbox" />Aa
+            </label>
+          </div>
+          <div class="find-row">
+            <input id="replace-text" type="text" placeholder="替换为..." />
+            <button id="btn-find-prev">上一个</button>
+            <button id="btn-find-next">下一个</button>
+          </div>
+          <div class="find-row find-actions">
+            <button id="btn-replace">替换</button>
+            <button id="btn-replace-all">全部替换</button>
+            <button id="btn-close-find" class="sheet-close-btn">关闭 (Esc)</button>
+          </div>
+        </div>
+      `
+      _findPanel = host.querySelector('#find-replace-panel') as HTMLDivElement
+    }
+    const overlay = _findOverlay
+    _findInput = overlay?.querySelector('#find-text') as HTMLInputElement
+    _replaceInput = overlay?.querySelector('#replace-text') as HTMLInputElement
+    _findCase = overlay?.querySelector('#find-case') as HTMLInputElement
+    const btnPrev = overlay?.querySelector('#btn-find-prev') as HTMLButtonElement
+    const btnNext = overlay?.querySelector('#btn-find-next') as HTMLButtonElement
+    const btnRep = overlay?.querySelector('#btn-replace') as HTMLButtonElement
+    const btnAll = overlay?.querySelector('#btn-replace-all') as HTMLButtonElement
+    const btnClose = overlay?.querySelector('#btn-close-find') as HTMLButtonElement
+    const lblCount = overlay?.querySelector('#find-count') as HTMLSpanElement | null
+    const closePanel = () => { hideFindPanel() }
+    overlay?.addEventListener('click', (e) => { if (e.target === overlay) closePanel() })
+    attachBottomSheetSwipe(_findOverlay, _findPanel, closePanel)
 
     function norm(s: string) { return (_findCase?.checked ? s : s.toLowerCase()) }
     function getSel() { return { s: editor.selectionStart >>> 0, e: editor.selectionEnd >>> 0 } }
@@ -9168,11 +9348,20 @@ function bindEvents() {
     btnNext?.addEventListener('click', () => findNext())
     btnRep?.addEventListener('click', () => replaceOne())
     btnAll?.addEventListener('click', () => replaceAll())
-    btnClose?.addEventListener('click', () => { panel.style.display = 'none'; if (wysiwyg) { try { (document.querySelector('#md-wysiwyg-root .ProseMirror') as HTMLElement)?.focus() } catch {} } else { try { editor.focus() } catch {} } })
+    btnClose?.addEventListener('click', () => hideFindPanel())
+  }
+
+  function hideFindPanel(): void {
+    hideSheet(_findOverlay)
+    if (wysiwyg) { try { (document.querySelector('#md-wysiwyg-root .ProseMirror') as HTMLElement)?.focus() } catch {} } else { try { editor.focus() } catch {} }
+  }
+
+  function isFindPanelVisible(): boolean {
+    return !!(_findOverlay && _findOverlay.classList.contains('show') && !_findOverlay.classList.contains('hidden'))
   }
   function showFindPanel() {
     ensureFindPanel()
-    if (!_findPanel) return
+    if (!_findPanel || !_findOverlay) return
     try { delete (_findPanel as HTMLDivElement).dataset.mode } catch {}
     // 选区文本用作初始查找词
     try {
@@ -9182,7 +9371,7 @@ function bindEvents() {
       if (sel) { (_findInput as HTMLInputElement).value = sel; _lastFind = sel }
     } catch {}
     try { if (_findUpdateLabelFn) _findUpdateLabelFn() } catch {}
-    _findPanel.style.display = 'block'
+    showSheet(_findOverlay)
     setTimeout(() => { try { (_findInput as HTMLInputElement).focus(); (_findInput as HTMLInputElement).select() } catch {} }, 0)
   }
 
@@ -9190,7 +9379,7 @@ function bindEvents() {
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     try {
       // 查找面板打开时，回车键用于切换到下一个/上一个（在所有模式下都拦截）
-      if (_findPanel && _findPanel.style.display !== 'none' && e.key === 'Enter') {
+      if (isFindPanelVisible() && e.key === 'Enter') {
         e.preventDefault()
         e.stopPropagation()
         if (e.shiftKey) { if (_findPrevFn) _findPrevFn() } else { if (_findNextFn) _findNextFn(true) }
@@ -9198,9 +9387,155 @@ function bindEvents() {
       }
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); showFindPanelFindOnly(); return }
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'h') { e.preventDefault(); showFindPanel(); return }
-      if (e.key === 'Escape' && _findPanel && _findPanel.style.display !== 'none') { e.preventDefault(); _findPanel.style.display = 'none'; if (wysiwyg) { try { (document.querySelector('#md-wysiwyg-root .ProseMirror') as HTMLElement)?.focus() } catch {} } else { try { editor.focus() } catch {} } ; return }
+      if (e.key === 'Escape' && isFindPanelVisible()) { e.preventDefault(); hideFindPanel(); return }
     } catch {}
   }, true)  // 使用捕获阶段，确保在其他监听器之前处理
+
+  function renderTabSheet(open = true): void {
+    const sheet = ensureSheet('tab-sheet', '标签页', 'fa-solid fa-table-cells-large')
+    if (!sheet) return
+    _tabSheetOverlay = sheet.overlay
+    const body = sheet.body
+    if (body) {
+      body.innerHTML = ''
+      if (!_tabManagerRef) {
+        const empty = document.createElement('div')
+        empty.className = 'sheet-empty'
+        empty.textContent = '标签功能正在加载...'
+        body.appendChild(empty)
+      } else {
+        const tabs = (_tabManagerRef?.getTabs?.() as readonly TabDocument[] | undefined) || []
+        const activeId = _tabManagerRef?.getActiveTabId?.() ?? null
+        if (!tabs.length) {
+          const empty = document.createElement('div')
+          empty.className = 'sheet-empty'
+          empty.textContent = '暂无标签页'
+          body.appendChild(empty)
+        } else {
+          const grid = document.createElement('div')
+          grid.className = 'tab-sheet-grid'
+          tabs.forEach((tab) => {
+            const item = document.createElement('button')
+            item.type = 'button'
+            item.className = 'tab-sheet-item' + (tab.id === activeId ? ' active' : '')
+            const name = (tab.filePath || '').split(/[/\\]/).pop() || (t('filename.untitled') || '未命名')
+            const path = tab.filePath || (t('filename.untitled') || '未命名')
+            item.innerHTML = `
+              <div class="tab-sheet-title">${name}${tab.dirty ? '<span class="tab-dirty-dot">*</span>' : ''}</div>
+              <div class="tab-sheet-path">${path}</div>
+              <span class="tab-sheet-close" aria-label="关闭"><i class="fa-solid fa-xmark" aria-hidden="true"></i></span>
+            `
+            item.addEventListener('click', async () => {
+              try { await _tabManagerRef?.switchToTab?.(tab.id) } catch {}
+              hideSheet(_tabSheetOverlay)
+            })
+            const closeBtn = item.querySelector('.tab-sheet-close') as HTMLSpanElement | null
+            closeBtn?.addEventListener('click', async (ev) => {
+              ev.stopPropagation()
+              try { await _tabManagerRef?.closeTab?.(tab.id) } catch {}
+              refreshTabSheet(false)
+            })
+            grid.appendChild(item)
+          })
+          body.appendChild(grid)
+        }
+      }
+    }
+    if (open) showSheet(sheet.overlay)
+  }
+
+  function refreshTabSheet(openIfVisible = false): void {
+    const isOpen = _tabSheetOverlay ? (_tabSheetOverlay.classList.contains('show') && !_tabSheetOverlay.classList.contains('hidden')) : false
+    if (!_tabSheetOverlay && !openIfVisible) return
+    renderTabSheet(openIfVisible || isOpen)
+  }
+
+  function openTabManagerSheet(): void {
+    renderTabSheet(true)
+  }
+
+  function renderQuickCommandsSheet(open = true): void {
+    const sheet = ensureSheet('quick-commands-sheet', '快捷命令', 'fa-solid fa-bolt')
+    if (!sheet) return
+    _commandsSheetOverlay = sheet.overlay
+    const body = sheet.body
+    if (body) {
+      body.innerHTML = ''
+      if (pluginsMenuItems.size === 0) {
+        const empty = document.createElement('div')
+        empty.className = 'sheet-empty'
+        empty.textContent = '暂无可用插件命令'
+        body.appendChild(empty)
+      } else {
+        const list = document.createElement('div')
+        list.className = 'quick-cmd-list'
+        pluginsMenuItems.forEach((item) => {
+          const btn = document.createElement('button')
+          btn.type = 'button'
+          btn.className = 'quick-cmd-item'
+          const note = item.children && item.children.length > 0 ? `<span class="cmd-note">${item.children.length} 个子命令</span>` : ''
+          btn.innerHTML = `<span class="cmd-title">${item.label}</span>${note}`
+          btn.addEventListener('click', () => {
+            try { hideSheet(_commandsSheetOverlay) } catch {}
+            try {
+              if (item.onClick) {
+                item.onClick()
+              } else if (item.children && item.children.length > 0) {
+                try { togglePluginDropdown(btn, item.children) } catch {}
+              }
+            } catch (err) { console.warn('Plugin quick command failed', err) }
+          })
+          list.appendChild(btn)
+        })
+        body.appendChild(list)
+      }
+    }
+    if (open) showSheet(sheet.overlay)
+  }
+
+  function refreshQuickCommandsSheet(openIfVisible = false): void {
+    const isOpen = _commandsSheetOverlay ? (_commandsSheetOverlay.classList.contains('show') && !_commandsSheetOverlay.classList.contains('hidden')) : false
+    if (!_commandsSheetOverlay && !openIfVisible && pluginsMenuItems.size === 0) return
+    renderQuickCommandsSheet(openIfVisible || isOpen)
+  }
+
+  function initMobileBottomBar(): void {
+    if (_bottomBarEl || !isMobilePlatform()) return
+    const bar = document.createElement('div')
+    bar.id = 'mobile-bottom-bar'
+    bar.innerHTML = `
+      <button type="button" data-action="new-tab"><i class="fa-solid fa-plus" aria-hidden="true"></i><span class="label">新标签</span></button>
+      <button type="button" data-action="manage-tabs"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i><span class="label">标签管理</span></button>
+      <button type="button" data-action="search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span class="label">搜索</span></button>
+      <button type="button" data-action="commands"><i class="fa-solid fa-bolt" aria-hidden="true"></i><span class="label">快捷命令</span></button>
+    `
+    document.body.appendChild(bar)
+    document.body.classList.add('has-bottom-bar')
+    _bottomBarEl = bar
+    bar.addEventListener('click', (ev) => {
+      const btn = (ev.target as HTMLElement).closest('button')
+      if (!btn) return
+      const act = btn.getAttribute('data-action')
+      if (act === 'new-tab') {
+        void (async () => { try { await newFile() } catch (e) { console.warn('新建标签失败', e) } })()
+      } else if (act === 'manage-tabs') {
+        openTabManagerSheet()
+      } else if (act === 'search') {
+        showFindPanelFindOnly()
+      } else if (act === 'commands') {
+        renderQuickCommandsSheet(true)
+      }
+    })
+  }
+
+  function bindTabManagerForUi(tabManager: any): void {
+    _tabManagerRef = tabManager
+    if (_tabEventsUnsub) { try { _tabEventsUnsub() } catch {} ; _tabEventsUnsub = null }
+    if (tabManager?.addEventListener) {
+      const off = tabManager.addEventListener(() => { refreshTabSheet(false) })
+      if (typeof off === 'function') _tabEventsUnsub = off
+    }
+  }
 
   // 撤销友好插入/删除：通过 execCommand / setRangeText 保持到原生撤销栈
   function insertUndoable(ta: HTMLTextAreaElement, text: string): boolean {
@@ -12322,10 +12657,10 @@ function isLikelyLocalPath(input: string): boolean {
 function ensureExtensionsOverlayMounted() {
   if (_extOverlayEl) return
   const overlay = document.createElement('div')
-  overlay.className = 'ext-overlay'
+  overlay.className = 'ext-overlay sheet-overlay hidden'
   overlay.id = 'extensions-overlay'
   overlay.innerHTML = `
-    <div class=\"ext-dialog\" role=\"dialog\" aria-modal=\"true\">
+    <div class=\"ext-dialog sheet-panel\" role=\"dialog\" aria-modal=\"true\">
       <div class=\"ext-header\">
         <div>${t('ext.title')}</div>
         <button class=\"ext-close\" id=\"ext-close\">×</button>
@@ -12353,6 +12688,10 @@ function ensureExtensionsOverlayMounted() {
 
   btnClose?.addEventListener('click', () => showExtensionsOverlay(false))
   overlay.addEventListener('click', (e) => { if (e.target === overlay) showExtensionsOverlay(false) })
+  try {
+    const panel = overlay.querySelector('.ext-dialog') as HTMLDivElement | null
+    attachBottomSheetSwipe(overlay, panel, () => showExtensionsOverlay(false))
+  } catch {}
 
   // GitHub/URL/本地 安装（统一入口，根据输入内容区分）
   btnInstall?.addEventListener('click', async () => {
@@ -12399,7 +12738,7 @@ async function showExtensionsOverlay(show: boolean): Promise<void> {
   ensureExtensionsOverlayMounted()
   if (!_extOverlayEl) return
   if (show) {
-    _extOverlayEl.classList.add('show')
+    showSheet(_extOverlayEl)
     // 第一次打开：完整刷新（可能触发网络请求和市场索引加载）
     if (!_extOverlayRenderedOnce) {
       _extOverlayRenderedOnce = true
@@ -12423,7 +12762,7 @@ async function showExtensionsOverlay(show: boolean): Promise<void> {
       }
     }
   } else {
-    _extOverlayEl.classList.remove('show')
+    hideSheet(_extOverlayEl)
   }
 }
 
@@ -12507,4 +12846,6 @@ function shouldSanitizePreview(): boolean {
 }
 
 // 初始化多标签系统（包装器模式，最小侵入）
-import('./tabs/integration').catch(e => console.warn('[Tabs] Failed to load tab system:', e))
+import('./tabs/integration')
+  .then((mod) => { try { bindTabManagerForUi(mod.tabManager) } catch (err) { console.warn('[Tabs] bind ui failed', err) } })
+  .catch(e => console.warn('[Tabs] Failed to load tab system:', e))

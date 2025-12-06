@@ -2176,11 +2176,12 @@ export async function openWebdavSyncDialog(): Promise<void> {
   if (!overlay) {
     overlay = document.createElement('div')
     overlay.id = overlayId
-    overlay.className = 'upl-overlay hidden'
+    overlay.className = 'upl-overlay sheet-overlay hidden'
+    overlay.setAttribute('aria-hidden', 'true')
     overlay.innerHTML = `
-      <div class="upl-dialog" role="dialog" aria-modal="true" aria-labelledby="sync-title">
+      <div class="upl-dialog sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sync-title">
         <div class="upl-header">
-          <div id="sync-title">${t('sync.title')}</div>
+          <div class="upl-title"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span id="sync-title">${t('sync.title')}</span></div>
           <button id="sync-close" class="about-close" title="${t('about.close')}">×</button>
         </div>
         <form class="upl-body" id="sync-form">
@@ -2319,10 +2320,23 @@ export async function openWebdavSyncDialog(): Promise<void> {
     document.body.appendChild(overlay)
   }
 
+  try {
+    const panel = overlay.querySelector('.upl-dialog') as HTMLDivElement | null
+    const swipe = (window as any)?.__attachBottomSheetSwipe
+    if (typeof swipe === 'function') swipe(overlay, panel, () => show(false))
+  } catch {}
+
   const show = (v: boolean) => {
     if (!overlay) return
-    if (v) overlay.classList.remove('hidden')
-    else overlay.classList.add('hidden')
+    if (v) {
+      overlay.classList.remove('hidden')
+      overlay.classList.add('show')
+      overlay.setAttribute('aria-hidden', 'false')
+    } else {
+      overlay.classList.remove('show')
+      overlay.classList.add('hidden')
+      overlay.setAttribute('aria-hidden', 'true')
+    }
   }
 
   const form = overlay.querySelector('#sync-form') as HTMLFormElement
@@ -2567,5 +2581,3 @@ async function ensureRemoteDir(baseUrl: string, auth: { username: string; passwo
     for (const p of parts) { cur += '/' + p; try { await mkcol(baseUrl, auth, cur) } catch {} }
   } catch {}
 }
-
-

@@ -7,6 +7,11 @@
 
 /* ========== 响应式布局 ========== */
 @media (max-width: 768px) {
+  :root {
+    --titlebar-height: 60px;
+    --bottom-bar-visible: 82px;
+  }
+
   /* 文档库：在移动端作为左侧抽屉覆盖显示 */
   .library {
     position: fixed !important;
@@ -19,6 +24,10 @@
     z-index: 9999;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
     transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+
+  body.has-bottom-bar .library {
+    padding-bottom: var(--bottom-bar-height);
   }
 
   /* 工作区不再为库预留固定间距，改为被抽屉覆盖 */
@@ -36,7 +45,7 @@
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box;
-    height: calc(100vh - 48px) !important;
+    height: calc(100vh - var(--titlebar-height) - var(--bottom-bar-height)) !important;
     font-size: 16px !important; /* iOS 防止自动缩放 */
   }
 
@@ -45,7 +54,7 @@
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box;
-    height: calc(100vh - 48px) !important;
+    height: calc(100vh - var(--titlebar-height) - var(--bottom-bar-height)) !important;
   }
 
   /* 顶部工具栏按钮加大（触摸友好） */
@@ -73,8 +82,8 @@
   }
 
   .titlebar {
-    height: 40px !important;
-    min-height: 40px !important;
+    height: var(--titlebar-height) !important;
+    min-height: var(--titlebar-height) !important;
   }
 
   .titlebar .filename {
@@ -86,11 +95,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
+    width: 52px;
     border: none;
     background: transparent;
     color: var(--fg);
-    font-size: 20px;
+    font-size: 24px;
     padding: 0 4px;
     -webkit-app-region: no-drag;
   }
@@ -112,6 +121,71 @@
   /* 溢出菜单（三点） */
   .toolbar-overflow {
     display: inline-block !important;
+  }
+
+  /* 底栏导航 */
+  #mobile-bottom-bar {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--bottom-bar-visible);
+    padding: 8px 12px calc(10px + var(--safe-bottom-inset));
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.94);
+    color: var(--fg);
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    z-index: 12000;
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.12);
+    transform: translateY(0);
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+
+  body.has-bottom-bar #mobile-bottom-bar {
+    display: flex;
+  }
+
+  body.keyboard-open #mobile-bottom-bar {
+    transform: translateY(120%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #mobile-bottom-bar button {
+    flex: 1;
+    height: 100%;
+    border: none;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.04);
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 4px;
+    min-height: calc(var(--bottom-bar-visible) - 18px);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+
+  #mobile-bottom-bar button i {
+    font-size: 22px;
+  }
+
+  #mobile-bottom-bar button:active {
+    transform: translateY(1px);
+  }
+
+  #mobile-bottom-bar .label {
+    font-size: 12px;
+    opacity: 0.9;
   }
 
   /* 触摸滚动优化 */
@@ -246,10 +320,10 @@
 @supports (height: 100dvh) {
   @media (max-width: 768px) {
     #editor {
-      height: calc(100dvh - 48px) !important;
+      height: calc(100dvh - var(--titlebar-height) - var(--bottom-bar-height)) !important;
     }
     #preview {
-      height: calc(100dvh - 48px) !important;
+      height: calc(100dvh - var(--titlebar-height) - var(--bottom-bar-height)) !important;
     }
   }
 }
@@ -274,12 +348,22 @@
 }
 
 /* ========== 暗色模式适配 ========== */
-@media (prefers-color-scheme: dark) {
-  .fab-main {
-    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-  }
+  @media (prefers-color-scheme: dark) {
+    .fab-main {
+      background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    }
 
-  .fab-item {
-    background: #2d3748;
+    .fab-item {
+      background: #2d3748;
+    }
+
+    #mobile-bottom-bar {
+      background: rgba(12, 14, 18, 0.95);
+      box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    #mobile-bottom-bar button {
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
   }
-}

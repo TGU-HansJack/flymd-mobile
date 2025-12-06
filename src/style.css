@@ -10,6 +10,10 @@
   --fg: #1f2328;
   --muted: #7a7a7a;
   --border: #e5e7eb;
+  --titlebar-height: 56px;
+  --bottom-bar-visible: 78px;
+  --safe-bottom-inset: env(safe-area-inset-bottom, 0px);
+  --bottom-bar-height: 0px;
   /* 阅读模式背景（羊皮纸质感，暖色护眼） */
   --preview-bg: #fbf5e6;          /* 纸面底色：淡米色 */
   /* 更清晰的边框与代码背景（所见模式用） */
@@ -61,10 +65,19 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-ui, inherit);
+  font-size: 15px;
   /* 改进字体渲染 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+body.has-bottom-bar {
+  --bottom-bar-height: calc(var(--bottom-bar-visible) + var(--safe-bottom-inset));
+}
+
+body.keyboard-open {
+  --bottom-bar-height: 0px;
 }
 
 /* 通用隐藏类 */
@@ -212,8 +225,8 @@ body[data-scrollbar-visible="true"] .library {
 }
 
 .titlebar {
-    height: 36px;
-    min-height: 36px;
+    height: var(--titlebar-height);
+    min-height: var(--titlebar-height);
     flex-shrink: 0;
     display: flex;
     align-items: stretch;
@@ -233,8 +246,8 @@ body[data-scrollbar-visible="true"] .library {
   -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
-  padding: 0 12px;
-  font-size: 13px;
+  padding: 0 14px;
+  font-size: 15px;
   color: var(--fg);
   cursor: pointer;
   user-select: none;
@@ -246,6 +259,10 @@ body[data-scrollbar-visible="true"] .library {
 
 .menu-item:hover {
   background: rgba(127, 127, 127, 0.08);
+}
+
+.titlebar i {
+  font-size: 18px;
 }
 
 /* 窗口控制按钮（紧凑标题栏模式） */
@@ -503,8 +520,8 @@ body.compact-titlebar .window-btn.window-close:hover {
   flex: 1;
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  font-size: 13px;
+  padding: 0 18px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--fg);
   overflow: hidden;
@@ -542,7 +559,7 @@ body.compact-titlebar .window-btn.window-close:hover {
   --workspace-bottom-gap: var(--dock-bottom-gap);
   flex: 1; /* 在flex布局中填充剩余空间 */
   min-height: 0; /* 允许flex子元素正确收缩和滚动 */
-  height: calc(100% - 36px);
+  height: calc(100% - var(--titlebar-height) - var(--bottom-bar-height));
   overflow: hidden; /* 防止内容溢出影响外部布局 */
   position: relative;
   background: var(--bg);
@@ -571,7 +588,7 @@ body.compact-titlebar .window-btn.window-close:hover {
   overflow-y: auto; /* 确保内容超出时显示滚动条 */
   overflow-x: hidden; /* 隐藏横向滚动条 */
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  font-size: 14px; line-height: 1.7; color: var(--fg);
+  font-size: 15px; line-height: 1.7; color: var(--fg);
   background: var(--bg);
   padding: 20px 24px 40px 24px;
   box-sizing: border-box;
@@ -1394,7 +1411,7 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .statusbar {
   position: absolute;
   right: 14px;
-  bottom: 50px;
+  bottom: calc(16px + var(--bottom-bar-height));
   font-size: 12px;
   color: var(--muted);
   padding: 6px 12px;
@@ -1413,7 +1430,7 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .notification-container {
   position: fixed;
   right: 14px;
-  bottom: 10px;
+  bottom: calc(10px + var(--bottom-bar-height));
   z-index: 999999; /* 最高层级，确保不被任何弹窗遮挡 */
   display: flex;
   flex-direction: column-reverse; /* 新消息从下往上堆叠 */
@@ -1777,29 +1794,86 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .recent-panel .item:hover { background: rgba(127,127,127,0.08); }
 .recent-panel .path { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 关于 弹窗 */
-.about-overlay {
-  position: absolute;
+/* 抽屉通用样式 */
+.sheet-overlay {
+  position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.35);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  z-index: 50;
-  animation: fadeIn 0.2s ease;
+  background: rgba(0,0,0,0.45);
   backdrop-filter: blur(4px);
+  z-index: 80000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
 }
-.about-overlay.hidden {
-  display: none;
+.sheet-overlay.show,
+.sheet-overlay:not(.hidden) {
+  opacity: 1;
+  pointer-events: auto;
 }
-.about-dialog {
-  width: 460px;
-  max-width: calc(100% - 40px);
+.sheet-panel {
+  width: min(720px, 100%);
+  max-height: 88vh;
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -10px 26px rgba(0,0,0,0.2);
+  transform: translateY(14%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease;
+  overflow: hidden;
+}
+.sheet-overlay.show .sheet-panel,
+.sheet-overlay:not(.hidden) .sheet-panel {
+  transform: translateY(0);
+}
+.sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--chrome-bg, var(--bg));
+}
+.sheet-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 16px;
+  flex: 1;
+}
+.sheet-title i { font-size: 18px; }
+.sheet-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.sheet-close:hover { background: rgba(127,127,127,0.08); }
+.sheet-body {
+  padding: 14px 16px 22px;
+  overflow: auto;
+}
+
+/* 关于 抽屉 */
+.about-overlay {
+  animation: fadeIn 0.2s ease;
+}
+.about-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.about-dialog {
+  max-width: min(640px, 100%);
 }
 
 @keyframes fadeIn {
@@ -1807,43 +1881,137 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
   to { opacity: 1; }
 }
 
-/* 设置面板（全页面右滑） */
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.25);
-  backdrop-filter: blur(4px);
+.sheet-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.tab-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.tab-sheet-item {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  color: var(--fg);
+  padding: 10px 12px 12px 12px;
+  text-align: left;
   display: flex;
-  justify-content: flex-end;
-  align-items: stretch;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-  z-index: 120;
+  flex-direction: column;
+  gap: 6px;
 }
-.settings-overlay.show {
-  opacity: 1;
-  pointer-events: auto;
+.tab-sheet-item.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37,99,235,0.2);
 }
-.settings-panel {
-  width: min(520px, 100%);
-  max-width: 520px;
-  height: 100%;
+.tab-sheet-title {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tab-dirty-dot { color: #f97316; font-size: 12px; }
+.tab-sheet-path {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  word-break: break-all;
+}
+.tab-sheet-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+.tab-sheet-close:hover { background: rgba(127,127,127,0.12); color: var(--fg); }
+
+.quick-cmd-list { display: flex; flex-direction: column; gap: 10px; }
+.quick-cmd-item {
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  color: var(--fg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.quick-cmd-item:hover { border-color: rgba(37,99,235,0.4); box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
+.cmd-note { font-size: 12px; color: var(--muted); }
+
+.find-panel { display: flex; flex-direction: column; gap: 10px; }
+.find-row { display: flex; align-items: center; gap: 10px; }
+.find-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   background: var(--bg);
   color: var(--fg);
-  border-left: 1px solid var(--border);
-  box-shadow: -8px 0 24px rgba(0,0,0,0.15);
-  transform: translateX(100%);
+}
+.find-row input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.2); outline: none; }
+.find-row button {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+.find-row button:hover { background: rgba(127,127,127,0.12); }
+.find-case { display: inline-flex; align-items: center; gap: 6px; user-select: none; }
+.find-count {
+  min-width: 56px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(127,127,127,0.08);
+}
+.find-actions { justify-content: flex-end; }
+
+.settings-overlay {
+  z-index: 85000;
+}
+.settings-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.settings-panel {
+  width: min(720px, 100%);
+  max-height: 88vh;
+  height: auto;
+  background: var(--bg);
+  color: var(--fg);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -10px 26px rgba(0,0,0,0.2);
+  transform: translateY(16%);
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
 }
-.settings-overlay.show .settings-panel { transform: translateX(0); }
+.settings-overlay.show .settings-panel,
+.settings-overlay:not(.hidden) .settings-panel { transform: translateY(0); }
 .settings-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--chrome-bg, var(--bg));
   position: sticky;
@@ -1857,15 +2025,15 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 }
 .settings-back,
 .settings-close {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
   background: transparent;
   color: var(--fg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
 }
 .settings-back:hover,
@@ -3000,9 +3168,9 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 .about-links a:hover { text-decoration: underline; }
 
 /* 插入链接 对话框 */
-.link-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 60; }
-.link-overlay.hidden { display: none; }
-.link-dialog { width: 420px; max-width: calc(100% - 40px); background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.link-overlay { z-index: 70000; align-items: flex-end; }
+.link-overlay.hidden { opacity: 0; pointer-events: none; }
+.link-dialog { width: min(560px, 100%); max-height: 80vh; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,0.15); }
 .link-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px; }
 .link-body { padding: 14px 16px 16px 16px; }
 .link-field { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; margin: 10px 0; font-size: 13px; }
@@ -3016,31 +3184,21 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 /* 图床设置 对话框 */
 /* 图床和同步设置弹窗 */
 .upl-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 65;
-  animation: upl-overlay-fadein 0.2s ease-out;
+  z-index: 82000;
 }
-.upl-overlay.hidden { display: none; }
-
-@keyframes upl-overlay-fadein {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.upl-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .upl-dialog {
-  width: 680px;
-  max-width: calc(100% - 40px);
+  width: min(720px, 100%);
+  max-height: 88vh;
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,.1);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -10px 26px rgba(0,0,0,0.2);
   animation: upl-dialog-slidein 0.25s ease-out;
   overflow: hidden;
 }
@@ -3048,7 +3206,7 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
 @keyframes upl-dialog-slidein {
   from {
     opacity: 0;
-    transform: translateY(-20px) scale(0.95);
+    transform: translateY(18%) scale(0.98);
   }
   to {
     opacity: 1;
@@ -3066,6 +3224,12 @@ body.focus-mode .lib-float-toggle.show { display: flex; }
   font-size: 15px;
   background: linear-gradient(to bottom, rgba(127,127,127,0.02), transparent);
 }
+.upl-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.upl-title i { font-size: 16px; }
 
 .upl-header button {
   border: none;
@@ -3403,17 +3567,14 @@ html, body { overflow: hidden; }
 
 /* 扩展管理弹窗 */
 .ext-overlay {
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,.5);
-  backdrop-filter: blur(4px);
-  z-index: 80000;
+  display: flex;
+  z-index: 82000;
   animation: ext-overlay-fadein 0.2s ease-out;
 }
-.ext-overlay.show { display: flex; }
+.ext-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
 
 @keyframes ext-overlay-fadein {
   from { opacity: 0; }
@@ -3421,13 +3582,13 @@ html, body { overflow: hidden; }
 }
 
 .ext-dialog {
-  width: 1100px;
-  max-width: calc(100% - 40px);
+  width: min(980px, 100%);
+  max-height: 90vh;
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.1);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -12px 28px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.1);
   animation: ext-dialog-slidein 0.25s ease-out;
   overflow: hidden;
 }
@@ -3435,7 +3596,7 @@ html, body { overflow: hidden; }
 @keyframes ext-dialog-slidein {
   from {
     opacity: 0;
-    transform: translateY(-20px) scale(0.95);
+    transform: translateY(16%) scale(0.98);
   }
   to {
     opacity: 1;
@@ -6128,6 +6289,11 @@ body.focus-mode.custom-titlebar-active .focus-trigger-zone {
    ======================================== */
 
 /* 标签栏容器：防止被flex布局压缩 */
+.tabbar,
+#tabbar-container {
+  display: none !important;
+}
+
 #tabbar-container {
   flex-shrink: 0;
 }
