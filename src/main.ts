@@ -8285,7 +8285,9 @@ async function refreshLibraryUiAndTree(refreshTree = true) {
   if (!refreshTree) return
   try {
     const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null
-    if (treeEl && !fileTreeReady) {
+    if (!treeEl) return
+
+    if (!fileTreeReady) {
       await fileTree.init(treeEl, {
         getRoot: getLibraryRoot,
         onOpenFile: async (p: string) => { await openFile2(p) },
@@ -8293,10 +8295,14 @@ async function refreshLibraryUiAndTree(refreshTree = true) {
         onMoved: async (src: string, dst: string) => { try { if (currentFilePath === src) { currentFilePath = dst as any; refreshTitle() } } catch {} }
       })
       fileTreeReady = true
-    } else if (treeEl) {
-      await fileTree.refresh()
     }
-    try { const s = await getLibrarySort(); fileTree.setSort(s); await fileTree.refresh() } catch {}
+
+    try {
+      const s = await getLibrarySort()
+      fileTree.setSort(s)
+    } catch {}
+
+    await fileTree.refresh()
   } catch {}
 }
 
@@ -9941,10 +9947,8 @@ function bindEvents() {
     showLibrary(true)
     let root = await getLibraryRoot()
     if (!root) root = await pickLibraryRoot()
-    try { await refreshLibraryUiAndTree(false) } catch {}
-    const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null; if (treeEl && !fileTreeReady) { await fileTree.init(treeEl, { getRoot: getLibraryRoot, onOpenFile: async (p: string) => { await openFile2(p) }, onOpenNewFile: async (p: string) => { await openFile2(p); mode='edit'; preview.classList.add('hidden'); try { (editor as HTMLTextAreaElement).focus() } catch {} }, onMoved: async (src: string, dst: string) => { try { if (currentFilePath === src) { currentFilePath = dst as any; refreshTitle() } } catch {} } }); fileTreeReady = true } else if (treeEl) { await fileTree.refresh() }
-    // 应用持久化的排序偏好
-    try { const s = await getLibrarySort(); fileTree.setSort(s); await fileTree.refresh() } catch {}
+    const needTreeRefresh = !fileTreeReady
+    try { await refreshLibraryUiAndTree(needTreeRefresh) } catch {}
   }))
   // 非固定模式：点击库外空白自动隐藏
   document.addEventListener('mousedown', (ev) => {
@@ -10459,7 +10463,7 @@ function bindEvents() {
     const chooseBtn = document.getElementById('lib-choose') as HTMLButtonElement | null
     const refreshBtn = document.getElementById('lib-refresh') as HTMLButtonElement | null
     if (chooseBtn) chooseBtn.addEventListener('click', guard(async () => { await showLibraryMenu() }))
-    if (refreshBtn) refreshBtn.addEventListener('click', guard(async () => { const treeEl = document.getElementById('lib-tree') as HTMLDivElement | null; if (treeEl && !fileTreeReady) { await fileTree.init(treeEl, { getRoot: getLibraryRoot, onOpenFile: async (p: string) => { await openFile2(p) }, onOpenNewFile: async (p: string) => { await openFile2(p); mode='edit'; preview.classList.add('hidden'); try { (editor as HTMLTextAreaElement).focus() } catch {} }, onMoved: async (src: string, dst: string) => { try { if (currentFilePath === src) { currentFilePath = dst as any; refreshTitle() } } catch {} } }); fileTreeReady = true } else if (treeEl) { await fileTree.refresh() } try { const s = await getLibrarySort(); fileTree.setSort(s); await fileTree.refresh() } catch {} }))
+    if (refreshBtn) refreshBtn.addEventListener('click', guard(async () => { try { await refreshLibraryUiAndTree(true) } catch {} }))
   } catch {}
 
   // 关于弹窗：点击遮罩或“关闭”按钮关闭
