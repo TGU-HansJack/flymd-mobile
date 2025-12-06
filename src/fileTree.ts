@@ -265,10 +265,10 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
     if (isDir) {
       // 仅保留“包含受支持文档(递归)”的目录
       if (await dirHasSupportedDocRecursive(p, allow)) {
-        dirs.push({ name: nameOf(p), path: p, isDir: true, mtime: needMtime ? toMtimeMs(st) : undefined })
+        dirs.push({ name: displayNameForRoot(p), path: p, isDir: true, mtime: needMtime ? toMtimeMs(st) : undefined })
       }
     } else {
-      const nm = nameOf(p)
+      const nm = displayNameForRoot(p)
       const ext = (nm.split('.').pop() || '').toLowerCase()
       if (allow.has(ext)) {
         items.push({ name: nm, path: p, isDir: false, mtime: needMtime ? toMtimeMs(st) : undefined, ext })
