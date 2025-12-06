@@ -79,6 +79,27 @@ function setExpandedState(path: string, expanded: boolean) {
 const hasDocCache = new Map<string, boolean>()
 const hasDocPending = new Map<string, Promise<boolean>>()
 
+// 支持的文档后缀（用于过滤显示）
+const SUPPORTED_EXTS = new Set(['md', 'markdown', 'txt', 'pdf'])
+
+// 在文件树中忽略的一些体积巨大或工程相关的目录，避免深度遍历导致明显卡顿
+const IGNORED_DIR_NAMES = new Set([
+  'node_modules',
+  '.git',
+  '.idea',
+  '.vscode',
+  '.svelte-kit',
+  '.turbo',
+  '.cache',
+  'dist',
+  'build',
+  'out',
+  'target',
+  '.next',
+  '.nuxt',
+  'coverage',
+])
+
 // 文件夹自定义排序映射：父目录 -> 子目录路径 -> 顺序索引（仅作用于文件夹）
 const folderOrder: Record<string, Record<string, number>> = {}
 const FOLDER_ORDER_KEY = 'flymd:folderOrder'
@@ -254,6 +275,9 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
   for (const it of ents) {
     const needMtime = (state.sortMode === 'mtime_asc' || state.sortMode === 'mtime_desc')
     const p: string = typeof it?.path === 'string' ? it.path : join(dir, it?.name || '')
+    const baseName: string = typeof it?.name === 'string' ? it.name : nameOf(p)
+    // 鎺掑簭鏃惰Е鍙戜竴浜涙暟鎹繃澶ф垨涓嶅叧鑺傜偣鐩綍锛屽 node_modules/.git 绛?
+    if (IGNORED_DIR_NAMES.has(baseName)) continue
     let isDir = !!(it as any)?.isDirectory
     let st: any = null
     if ((it as any)?.isDirectory === undefined) {
@@ -264,13 +288,13 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
     }
     if (isDir) {
       // 仅保留“包含受支持文档(递归)”的目录
-      if (await dirHasSupportedDocRecursive(p, allow)) {
+      if (await dirHasSupportedDocRecursive(p, SUPPORTED_EXTS)) {
         dirs.push({ name: displayNameForRoot(p), path: p, isDir: true, mtime: needMtime ? toMtimeMs(st) : undefined })
       }
     } else {
       const nm = displayNameForRoot(p)
       const ext = (nm.split('.').pop() || '').toLowerCase()
-      if (allow.has(ext)) {
+      if (SUPPORTED_EXTS.has(ext)) {
         items.push({ name: nm, path: p, isDir: false, mtime: needMtime ? toMtimeMs(st) : undefined, ext })
       }
     }
@@ -313,6 +337,13 @@ async function listDir(root: string, dir: string): Promise<{ name: string; path:
 // 递归判断目录是否包含受支持文档（带缓存）
 async function dirHasSupportedDocRecursive(dir: string, allow: Set<string>, depth = 20): Promise<boolean> {
   try {
+    const dirName = nameOf(dir)
+    // 忽略一些工程/系统目录，避免在这些目录上做深度递归扫描造成明显卡顿
+    if (IGNORED_DIR_NAMES.has(dirName)) {
+      hasDocCache.set(dir, false)
+      return false
+    }
+
     if (hasDocCache.has(dir)) return hasDocCache.get(dir) as boolean
     if (hasDocPending.has(dir)) return await (hasDocPending.get(dir) as Promise<boolean>)
 
