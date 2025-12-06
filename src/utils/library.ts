@@ -30,6 +30,21 @@ function normalizePath(p: string): string {
   }
 }
 
+function friendlyNameFromRoot(root: string): string {
+  try {
+    let tail = root.split(/[\\/]+/).filter(Boolean).pop() || root
+    try { tail = decodeURIComponent(tail) } catch {}
+    // content URI tree/document prefixes常出现 primary:xxx / 0000-0000:xxx
+    if (tail.includes(':')) tail = tail.split(':').pop() || tail
+    tail = tail.replace(/^tree\//i, '').replace(/^document\//i, '')
+    // 最后再取一次末段，避免 decode 后还带 /
+    tail = tail.split(/[/]+/).filter(Boolean).pop() || tail
+    return tail || root
+  } catch {
+    return root
+  }
+}
+
 async function migrateFromLegacyIfNeeded(store: Store): Promise<void> {
   // 若已有 libraries 列表则不迁移
   try {
@@ -64,7 +79,11 @@ export async function getLibraries(): Promise<Library[]> {
       const id = String((it as any).id || '').trim()
       const root = normalizePath((it as any).root || '')
       if (!id || !root) continue
-      const name = String((it as any).name || '').trim() || (root.split(/[/]+/).pop() || id)
+      const rawName = String((it as any).name || '').trim()
+      const name =
+        rawName && !/%[0-9a-f]{2}/i.test(rawName) && !/^[^:]+:%/i.test(rawName) && !/^primary:/i.test(rawName)
+          ? rawName
+          : friendlyNameFromRoot(root)
       const createdAt = Number((it as any).createdAt) > 0 ? Number((it as any).createdAt) : undefined
       const lastUsedAt = Number((it as any).lastUsedAt) > 0 ? Number((it as any).lastUsedAt) : undefined
       arr.push({ id, name, root, createdAt, lastUsedAt })
@@ -122,14 +141,15 @@ export async function upsertLibrary(input: { id?: string; name?: string; root: s
   let cur = input.id ? libs.find(x => x.id === input.id) : undefined
   if (!cur) cur = libs.find(x => normalizePath(x.root) === root)
   if (cur) {
-    const next: Library = { ...cur, name: input.name ?? cur.name, root, lastUsedAt: now }
+    const nextName = input.name ?? cur.name ?? friendlyNameFromRoot(root)
+    const next: Library = { ...cur, name: nextName, root, lastUsedAt: now }
     const arr = libs.map(x => x.id === cur!.id ? next : x)
     await setLibraries(arr)
     await setActiveLibraryId(next.id)
     return next
   }
   const id = input.id || `lib-${now}`
-  const name = input.name || (root.split(/[/]+/).filter(Boolean).pop() || id)
+  const name = input.name || friendlyNameFromRoot(root) || id
   const createdAt = now
   const lastUsedAt = now
   const lib: Library = { id, name, root, createdAt, lastUsedAt }
@@ -163,4 +183,3 @@ export async function removeLibrary(id: string): Promise<void> {
   }
   await store.save()
 }
-

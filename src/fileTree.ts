@@ -140,6 +140,18 @@ function join(a: string, b: string): string { const s = sep(a); return (a.endsWi
 function base(p: string): string { return p.split(/[\\/]+/).slice(0, -1).join(sep(p)) }
 function nameOf(p: string): string { const n = p.split(/[\\/]+/).pop() || p; return n }
 function isInside(root: string, p: string): boolean { const r = norm(root).toLowerCase(); const q = norm(p).toLowerCase(); const s = r.endsWith(sep(r)) ? r : r + sep(r); return q.startsWith(s) }
+function displayNameForRoot(p: string): string {
+  try {
+    let tail = p.split(/[\\/]+/).filter(Boolean).pop() || p
+    try { tail = decodeURIComponent(tail) } catch {}
+    if (tail.includes(':')) tail = tail.split(':').pop() || tail
+    tail = tail.replace(/^tree\//i, '').replace(/^document\//i, '')
+    tail = tail.split(/[/]+/).filter(Boolean).pop() || tail
+    return tail || p
+  } catch {
+    return p
+  }
+}
 
 async function ensureDir(dir: string) { try { await mkdir(dir, { recursive: true } as any) } catch {} }
 
@@ -816,7 +828,7 @@ async function renderRoot(root: string) {
   const topRow = document.createElement('div')
   topRow.className = 'lib-node lib-dir'
   ;(topRow as any).dataset.path = root
-  const tg = makeTg(); const ico = makeFolderIcon(root); const label = document.createElement('span'); label.className='lib-name'; label.textContent = nameOf(root) || root
+  const tg = makeTg(); const ico = makeFolderIcon(root); const label = document.createElement('span'); label.className='lib-name'; label.textContent = displayNameForRoot(root) || root
   topRow.appendChild(tg); topRow.appendChild(ico); topRow.appendChild(label)
   const kids = document.createElement('div')
   kids.className = 'lib-children'
