@@ -140,16 +140,30 @@ function join(a: string, b: string): string { const s = sep(a); return (a.endsWi
 function base(p: string): string { return p.split(/[\\/]+/).slice(0, -1).join(sep(p)) }
 function nameOf(p: string): string { const n = p.split(/[\\/]+/).pop() || p; return n }
 function isInside(root: string, p: string): boolean { const r = norm(root).toLowerCase(); const q = norm(p).toLowerCase(); const s = r.endsWith(sep(r)) ? r : r + sep(r); return q.startsWith(s) }
+// Decode percent-encoded tail segments defensively (handles double-encoding and stray %)
+function safeDecodeSegment(seg: string): string {
+  let cur = seg
+  for (let i = 0; i < 3; i++) {
+    const sanitized = cur.replace(/%(?![0-9a-fA-F]{2})/g, '%25')
+    let decoded: string
+    try { decoded = decodeURIComponent(sanitized) } catch { break }
+    if (decoded === cur) break
+    cur = decoded
+    if (!/%[0-9a-fA-F]{2}/.test(cur)) break
+  }
+  return cur
+}
 function displayNameForRoot(p: string): string {
   try {
     let tail = p.split(/[\\/]+/).filter(Boolean).pop() || p
-    try { tail = decodeURIComponent(tail) } catch {}
+    tail = safeDecodeSegment(tail)
     if (tail.includes(':')) {
       const colonParts = tail.split(':').filter(Boolean)
       tail = colonParts.length ? colonParts[colonParts.length - 1] : tail.replace(/:+$/, '')
     }
     tail = tail.replace(/^tree\//i, '').replace(/^document\//i, '')
     tail = tail.split(/[/]+/).filter(Boolean).pop() || tail
+    tail = safeDecodeSegment(tail)
     return tail || p
   } catch {
     return p

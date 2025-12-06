@@ -30,15 +30,33 @@ function normalizePath(p: string): string {
   }
 }
 
+// Decode percent-encoded segments defensively (covers double-encoding and stray %)
+function safeDecodeSegment(seg: string): string {
+  let cur = seg
+  for (let i = 0; i < 3; i++) {
+    const sanitized = cur.replace(/%(?![0-9a-fA-F]{2})/g, '%25')
+    let decoded: string
+    try { decoded = decodeURIComponent(sanitized) } catch { break }
+    if (decoded === cur) break
+    cur = decoded
+    if (!/%[0-9a-fA-F]{2}/.test(cur)) break
+  }
+  return cur
+}
+
 function friendlyNameFromRoot(root: string): string {
   try {
     let tail = root.split(/[\\/]+/).filter(Boolean).pop() || root
-    try { tail = decodeURIComponent(tail) } catch {}
+    tail = safeDecodeSegment(tail)
     // content URI tree/document prefixes常出现 primary:xxx / 0000-0000:xxx
-    if (tail.includes(':')) tail = tail.split(':').pop() || tail
+    if (tail.includes(':')) {
+      const colonParts = tail.split(':').filter(Boolean)
+      tail = colonParts.length ? colonParts[colonParts.length - 1] : tail.replace(/:+$/, '')
+    }
     tail = tail.replace(/^tree\//i, '').replace(/^document\//i, '')
     // 最后再取一次末段，避免 decode 后还带 /
     tail = tail.split(/[/]+/).filter(Boolean).pop() || tail
+    tail = safeDecodeSegment(tail)
     return tail || root
   } catch {
     return root
@@ -80,10 +98,9 @@ export async function getLibraries(): Promise<Library[]> {
       const root = normalizePath((it as any).root || '')
       if (!id || !root) continue
       const rawName = String((it as any).name || '').trim()
-      const name =
-        rawName && !/%[0-9a-f]{2}/i.test(rawName) && !/^[^:]+:%/i.test(rawName) && !/^primary:/i.test(rawName)
-          ? rawName
-          : friendlyNameFromRoot(root)
+      const looksEncoded =
+        /%/.test(rawName) || /^[^:]+:%/i.test(rawName) || /^primary:/i.test(rawName)
+      const name = rawName && !looksEncoded ? rawName : friendlyNameFromRoot(root)
       const createdAt = Number((it as any).createdAt) > 0 ? Number((it as any).createdAt) : undefined
       const lastUsedAt = Number((it as any).lastUsedAt) > 0 ? Number((it as any).lastUsedAt) : undefined
       arr.push({ id, name, root, createdAt, lastUsedAt })
